@@ -233,7 +233,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.setCursor(c)
 
     def updateLocalCamera(self):
-        if not self.pos_before_grab:
+        if not self.mouseGrab or self.pos_before_grab is None:
             return
 
         # Get current cursor position.
