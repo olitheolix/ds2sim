@@ -119,6 +119,8 @@ class ViewerWidget(QtWidgets.QWidget):
 
     def centerCursor(self):
         """Place the cursor in the pre-defined center position. """
+        if not self.pos_before_grab:
+            return
         c = self.cursor()
         c.setPos(self.pos_before_grab)
         c.setShape(QtCore.Qt.BlankCursor)
@@ -182,6 +184,9 @@ class ViewerWidget(QtWidgets.QWidget):
         self.setCursor(c)
 
     def updateCamera(self):
+        if not self.pos_before_grab:
+            return
+
         # Get current cursor position.
         xpos, ypos = self.cursor().pos().x(), self.cursor().pos().y()
 
