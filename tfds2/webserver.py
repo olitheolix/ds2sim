@@ -2,7 +2,6 @@ import time
 import json
 import signal
 import logging
-import multiprocessing
 import tornado.auth
 import tornado.websocket
 import tornado.httpserver
@@ -182,13 +181,13 @@ class RestRenderScene(BaseHttp):
             self.write(img)
 
 
-class Server(multiprocessing.Process):
+class Server:
     def __init__(self, host='127.0.0.1', port=9095, debug=False):
         super().__init__()
 
         self.host, self.port = host, port
         self.debug = debug
-        self._shutdown = multiprocessing.Event()
+        self._shutdown = False
 
         # Route Tornado's log messages through our Relays.
         self.logit = getLogger()
@@ -202,20 +201,17 @@ class Server(multiprocessing.Process):
         """
         msg = 'WebAPI intercepted signal {}'.format(signum)
         self.logit.info(msg)
-        self._shutdown.set()
+        self._shutdown = True
 
     def checkShutdown(self):
         """Initiate shutdown if the _shutdown flag is set."""
-        if not self._shutdown.is_set():
-            return
-        self.logit.info('WebAPI initiated shut down')
+        if self._shutdown:
+            self.logit.info('WebAPI initiated shut down')
+            self.http.stop()
 
-        # Stop the serving.
-        self.http.stop()
-
-        # Give server some time to process pending events, then stop it.
-        time.sleep(1)
-        self.http.io_loop.stop()
+            # Give server some time to process pending events, then stop it.
+            time.sleep(1)
+            self.http.io_loop.stop()
 
     def run(self):
         # Install the signal handler to facilitate a clean shutdown.
