@@ -209,9 +209,16 @@ class ViewerWidget(QtWidgets.QWidget):
         data = {'data': json.dumps({'camera': 'foo', 'width': 100, 'height': 100})}
         try:
             ret = requests.post(self.host + '/get-render', data=data)
-            return ret.content
         except (TypeError, requests.exceptions.ConnectionError):
             print('Connection Error')
+            return
+
+        try:
+            img = Image.open(io.BytesIO(ret.content))
+        except OSError:
+            return None
+        img = img.convert('RGB')
+        return np.array(img, np.uint8)
 
     def classifyImage(self, img):
         pass
@@ -220,18 +227,15 @@ class ViewerWidget(QtWidgets.QWidget):
         pass
 
     def replaceImage(self, img):
-        if img is None:
-            return
-
-        # Convert the bytes to a QPixmap.
-        img = io.BytesIO(img)
-        img = Image.open(img)
-        img = np.array(img)
-
         # Sanity check: must be an 8Bit RGB image.
-        assert img.dtype == np.uint8
-        assert len(img.shape) == 3
-        assert img.shape[2] == 3
+        try:
+            assert isinstance(img, np.ndarray)
+            assert img.dtype == np.uint8
+            assert len(img.shape) == 3
+            assert img.shape[2] == 3
+        except AssertionError:
+            print('Invalid image data')
+            return
 
         # Convert the Image to QImage.
         qimg = QtGui.QImage(
@@ -260,8 +264,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.label_classify.setText(f'Classify: {etime:,} ms')
 
         # Display the image.
-        img = img if ml_img is None else ml_img
-        self.replaceImage(img)
+        self.replaceImage(img if ml_img is None else ml_img)
 
         # Reset the timer.
         self.drawTimer = self.startTimer(1000)
