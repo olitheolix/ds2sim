@@ -244,23 +244,26 @@ class ViewerWidget(QtWidgets.QWidget):
     def timerEvent(self, event):
         self.killTimer(event.timerId())
 
-        # Update the camera position if we have grabbed the mouse.
-        if self.mouseGrab:
-            self.updateCamera()
+        # Update the camera position.
+        self.updateCamera()
 
-            t0 = time.time()
-            img = self.fetchNextFrame()
-            etime = int(1000 * (time.time() - t0))
-            self.label_fetch.setText(f'Fetch: {etime:,} ms')
+        # Fetch the next frame.
+        t0 = time.time()
+        img = self.fetchNextFrame()
+        etime = int(1000 * (time.time() - t0))
+        self.label_fetch.setText(f'Fetch: {etime:,} ms')
 
-            t0 = time.time()
-            ml_img = self.classifyImage(img)
-            etime = int(1000 * (time.time() - t0))
-            self.label_classify.setText(f'Classify: {etime:,} ms')
+        # Pass it to the (overloaded) classifier method.
+        t0 = time.time()
+        ml_img = self.classifyImage(img)
+        etime = int(1000 * (time.time() - t0))
+        self.label_classify.setText(f'Classify: {etime:,} ms')
 
-            img = img if ml_img is None else ml_img
-            self.replaceImage(img)
+        # Display the image.
+        img = img if ml_img is None else ml_img
+        self.replaceImage(img)
 
+        # Reset the timer.
         self.drawTimer = self.startTimer(1000)
 
 
