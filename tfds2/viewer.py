@@ -157,7 +157,7 @@ class ViewerWidget(QtWidgets.QWidget):
         # If True, the mouse will control the camera instead of the cursor on
         # the desktop GUI.
         self.pos_before_grab = None
-        self.mouseGrab = False
+        self.mouse_grab = False
 
         # Start the timer.
         self.drawTimer = self.startTimer(500)
@@ -221,9 +221,9 @@ class ViewerWidget(QtWidgets.QWidget):
             pass
 
     def mousePressEvent(self, event):
-        self.mouseGrab = not self.mouseGrab
+        self.mouse_grab = not self.mouse_grab
         c = self.cursor()
-        if self.mouseGrab:
+        if self.mouse_grab:
             self.pos_before_grab = c.pos()
             self.centerCursor()
             c.setShape(QtCore.Qt.BlankCursor)
@@ -233,7 +233,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.setCursor(c)
 
     def updateLocalCamera(self):
-        if not self.mouseGrab or self.pos_before_grab is None:
+        if not self.mouse_grab or self.pos_before_grab is None:
             return
 
         # Get current cursor position.
