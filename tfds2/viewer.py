@@ -135,7 +135,6 @@ class ViewerWidget(QtWidgets.QWidget):
 
         # Labels to display the scene image.
         self.label_img = ClassifiedImageLabel()
-        self.label_img.setPixmap(QtGui.QPixmap('scene.jpg'))
         self.label_fetch = QtWidgets.QLabel('Classify: 0 ms')
         self.label_classify = QtWidgets.QLabel('Fetch: 0 ms')
 
