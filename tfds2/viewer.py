@@ -120,6 +120,50 @@ class Camera:
         return self.c_r, self.c_u, self.c_f, self.pos
 
 
+class ClassifiedImageLabel(QtWidgets.QLabel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        self.setScaledContents(True)
+        self.ml_regions = []
+
+    def setMLRegions(self, regions):
+        try:
+            assert isinstance(regions, (tuple, list, np.ndarray))
+            if len(regions) == 0:
+                self.ml_regions.clear()
+                return True
+            regions = np.array(regions)
+            assert regions.ndim == 2
+            rect = np.array(regions[:, :4], np.float32)
+            rect = np.clip(rect, 0, 1)
+            rgba = 255 * np.array(regions[:, 4:8], np.float32)
+            rgba = np.clip(rgba, 0, 255)
+            rgba = rgba.astype(np.int32)
+            txt = [str(_) for _ in regions[:, 8]]
+        except (IndexError, AssertionError, ValueError):
+            print('Regions are invalid')
+            return False
+
+        rect, rgba = rect.tolist(), rgba.tolist()
+        self.ml_regions = [_ for _ in zip(rect, rgba, txt)]
+        return True
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        painter = QtGui.QPainter(self)
+
+        width, height = self.rect().width(), self.rect().height()
+        for rect, rgba, txt in self.ml_regions:
+            painter.setPen(QtGui.QPen(QtGui.QColor(*rgba)))
+
+            x, w = rect[0] * width, rect[2] * width
+            y, h = rect[1] * height, rect[3] * height
+            painter.drawRect(x, y, w, h)
+            painter.drawText(x, y, txt)
+
+
 class ViewerWidget(QtWidgets.QWidget):
     """Show one camera. This widget is usually embedded in a parent widget."""
     def __init__(self, parent, camera, host, port):
@@ -130,7 +174,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.host = f'http://{host}:{port}'
 
         # Labels to display the scene image.
-        self.label_img = QtWidgets.QLabel()
+        self.label_img = ClassifiedImageLabel()
         self.label_img.setPixmap(QtGui.QPixmap('scene.jpg'))
         self.label_fetch = QtWidgets.QLabel('Classify: 0 ms')
         self.label_classify = QtWidgets.QLabel('Fetch: 0 ms')
@@ -159,6 +203,9 @@ class ViewerWidget(QtWidgets.QWidget):
         # Start the timer.
         self.drawTimer = self.startTimer(500)
         self.last_ts = time.time()
+
+    def setMLRegions(self, regions):
+        self.label_img.setMLRegions(regions)
 
     def centerCursor(self):
         """Place the cursor in the pre-defined center position. """
