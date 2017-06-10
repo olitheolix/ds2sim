@@ -11,6 +11,7 @@ import numpy as np
 import PyQt5.QtGui as QtGui
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as QtWidgets
+import tfds2.logging
 from PIL import Image
 
 
@@ -80,6 +81,7 @@ class Camera:
 class ClassifiedImageLabel(QtWidgets.QLabel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.logit = tfds2.logging.getLogger('Viewer')
         self.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.setScaledContents(True)
         self.ml_regions = []
@@ -99,7 +101,7 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
             rgba = rgba.astype(np.int32)
             txt = [str(_) for _ in regions[:, 8]]
         except (IndexError, AssertionError, ValueError):
-            print('Regions are invalid')
+            self.logit.warn('Regions are invalid')
             return False
 
         rect, rgba = rect.tolist(), rgba.tolist()
@@ -125,6 +127,7 @@ class ViewerWidget(QtWidgets.QWidget):
     """Show one camera. This widget is usually embedded in a parent widget."""
     def __init__(self, parent, camera, host, port):
         super().__init__(parent)
+        self.logit = tfds2.logging.getLogger('Viewer')
 
         assert isinstance(camera, str)
         self.camera_name = camera
@@ -257,11 +260,11 @@ class ViewerWidget(QtWidgets.QWidget):
         try:
             ret = requests.post(self.host + '/set-camera', data=data)
         except (TypeError, requests.exceptions.ConnectionError):
-            print('Connection Error')
+            self.logit.warn('Connection Error')
             return
 
         if ret.status_code != 200:
-            print('Invalid request')
+            self.warn('Invalid request')
 
     def fetchNextFrame(self):
         payload = {'camera': self.camera_name, 'width': 512, 'height': 512}
@@ -269,15 +272,15 @@ class ViewerWidget(QtWidgets.QWidget):
         try:
             ret = requests.post(self.host + '/get-render', data=data)
         except (TypeError, requests.exceptions.ConnectionError):
-            print('Connection Error')
+            self.logit.warn('Connection Error')
             return
 
         try:
             img = Image.open(io.BytesIO(ret.content))
         except OSError:
+            self.logit.error('Server returned invalid JPG image')
             return None
-        img = img.convert('RGB')
-        return np.array(img, np.uint8)
+        return np.array(img.convert('RGB'), np.uint8)
 
     def classifyImage(self, img):
         assert isinstance(img, np.ndarray)
@@ -296,7 +299,7 @@ class ViewerWidget(QtWidgets.QWidget):
             assert len(img.shape) == 3
             assert img.shape[2] == 3
         except AssertionError:
-            print('Invalid image data')
+            self.logit.warn('Image data for Pixmap is invalid')
             return
 
         # Convert the Image to QImage.
@@ -337,6 +340,7 @@ class MainWindow(QtWidgets.QWidget):
     """Arrange the camera widgets."""
     def __init__(self, cameras: dict, host, port):
         super().__init__(parent=None)
+        self.logit = tfds2.logging.getLogger('Viewer')
 
         # Points to widget that has mouse grab.
         self.active_camera = None
