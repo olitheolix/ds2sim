@@ -261,10 +261,12 @@ class ViewerWidget(QtWidgets.QWidget):
             ret = requests.post(self.host + '/set-camera', data=data)
         except (TypeError, requests.exceptions.ConnectionError):
             self.logit.warn('Connection Error')
-            return
+            return False
 
         if ret.status_code != 200:
             self.warn('Invalid request')
+            return False
+        return True
 
     def fetchNextFrame(self):
         payload = {'camera': self.camera_name, 'width': 512, 'height': 512}
