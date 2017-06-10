@@ -323,14 +323,15 @@ class ViewerWidget(QtWidgets.QWidget):
         etime = int(1000 * (time.time() - t0))
         self.label_fetch.setText(f'Fetch: {etime:,} ms')
 
-        # Pass it to the (overloaded) classifier method.
-        t0 = time.time()
-        ml_img = self.classifyImage(img)
-        etime = int(1000 * (time.time() - t0))
-        self.label_classify.setText(f'Classify: {etime:,} ms')
+        if img is not None:
+            # Pass it to the (overloaded) classifier method.
+            t0 = time.time()
+            ml_img = self.classifyImage(img)
+            etime = int(1000 * (time.time() - t0))
+            self.label_classify.setText(f'Classify: {etime:,} ms')
 
-        # Display the image.
-        self.displayScene(img if ml_img is None else ml_img)
+            # Display the image.
+            self.displayScene(img if ml_img is None else ml_img)
 
         # Reset the timer.
         self.drawTimer = self.startTimer(1000)
