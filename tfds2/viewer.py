@@ -268,7 +268,10 @@ class ViewerWidget(QtWidgets.QWidget):
         return np.array(img, np.uint8)
 
     def classifyImage(self, img):
-        pass
+        assert isinstance(img, np.ndarray)
+        assert img.ndim == 3
+        assert img.shape[2] == 3
+        assert img.dtype == np.uint8
 
     def drawBBoxes(self, img, boxes):
         pass
