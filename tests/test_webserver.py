@@ -1,13 +1,10 @@
 import json
 import urllib
-import pytest
 import tfds2.webserver
 import unittest.mock as mock
 import tornado.web
 import tornado.testing
 import tornado.websocket
-
-from tornado.httputil import url_concat
 
 import numpy as np
 
@@ -146,4 +143,3 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         # Rotation matrix is not orthonormal.
         cam_vecs = np.hstack([right, right, pos])
         assert fun(cam_vecs) is None
-
