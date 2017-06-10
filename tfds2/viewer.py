@@ -14,49 +14,6 @@ import PyQt5.QtWidgets as QtWidgets
 from PIL import Image
 
 
-def addBBoxToImage(img, rectangles):
-    # Sanity check rectangles.
-    try:
-        rectangles = np.array(rectangles, np.float32)
-        assert rectangles.shape[1] == 5
-        assert isinstance(img, np.ndarray)
-        assert img.ndim == 3
-        assert img.shape[2] == 3
-    except (ValueError, AssertionError):
-        return None
-
-    img_width, img_height = img.shape[:2]
-    for x0, y0, width, height, acc in rectangles:
-        # Ignore this rectangle if it has zero (or negative) size.
-        if min(width, height) < 0:
-            continue
-
-        # Compute the coordinates of bottom right corner.
-        x1, y1 = x0 + int(width), y0 + int(height)
-
-        # Convert coordinates to integers, since we deal in pixels.
-        x0, x1, y0, y1 = np.array([x0, x1, y0, y1], np.int32).tolist()
-
-        # Do nothing if the rectangle is completely outside the image.
-        if (x0 >= img_width or x1 < 0) or (y0 >= img_height or y1 < 0):
-            continue
-
-        # Horizontal lines.
-        a, b = np.clip([x0, x1], 0, img_width)
-        if y0 >= 0:
-            img[y0, a:b, :] = 255
-        if y1 <= img_height:
-            img[y1 - 1, a:b, :] = 255
-
-        # Vertical lines.
-        a, b = np.clip([y0, y1], 0, img_width)
-        if x0 >= 0:
-            img[a:b, x0, :] = 255
-        if x1 <= img_width:
-            img[a:b, x1 - 1, :] = 255
-    return img
-
-
 class Camera:
     """ Free flight camera.
 
