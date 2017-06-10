@@ -124,7 +124,7 @@ class RestSetCamera(BaseHttp):
         try:
             payload = self.get_body_argument('data')
         except tornado.web.MissingArgumentError:
-            self.logit.info('Invalid request body')
+            self.logit.warning('Invalid request body')
             self.send_error(400)
             return
 
@@ -132,7 +132,7 @@ class RestSetCamera(BaseHttp):
         try:
             payload = json.loads(payload)
         except json.decoder.JSONDecodeError:
-            self.logit.info('Invalid content in "data" argument')
+            self.logit.warning('Invalid content in "data" argument')
             self.send_error(400)
             return
 
