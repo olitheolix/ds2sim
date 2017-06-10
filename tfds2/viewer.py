@@ -363,10 +363,6 @@ class MainWindow(QtWidgets.QWidget):
             self.viewers.append(viewer)
         self.setLayout(layout)
 
-        # If True, the mouse will control the camera instead of the cursor on
-        # the desktop GUI.
-        self.mouseGrab = False
-
         # Start the timer.
         self.drawTimer = self.startTimer(0)
         self.last_ts = time.time()
