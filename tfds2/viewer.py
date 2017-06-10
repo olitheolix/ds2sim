@@ -269,7 +269,7 @@ class ViewerWidget(QtWidgets.QWidget):
 
 class MainWindow(QtWidgets.QWidget):
     """Arrange the camera widgets."""
-    def __init__(self, cnames, host, port):
+    def __init__(self, cameras: dict, host, port):
         super().__init__(parent=None)
 
         # Points to widget that has mouse grab.
@@ -278,9 +278,9 @@ class MainWindow(QtWidgets.QWidget):
         # Put one ViewerWidget per camera into layout.
         self.viewers = []
         layout = QtWidgets.QHBoxLayout()
-        for cname in cnames:
+        for cname, widget in cameras.items():
             assert isinstance(cname, str)
-            viewer = ViewerWidget(self, cname, host, port)
+            viewer = widget(self, cname, host, port)
             viewer.installEventFilter(self)
             layout.addWidget(viewer)
             self.viewers.append(viewer)
