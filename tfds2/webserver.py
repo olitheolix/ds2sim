@@ -1,38 +1,14 @@
 import time
 import json
 import signal
-import logging
 import tornado.auth
 import tornado.websocket
 import tornado.httpserver
 import numpy as np
+import tfds2.logging
 import tfds2.rendering
 
 from tornado.log import enable_pretty_logging
-
-
-def getLogger():
-    """Return a custom logger object for DS2 functionality."""
-    # Return the logger object if it has handler (means we have already
-    # configured it).
-    logit = logging.getLogger('tornado')
-    if logit.hasHandlers():
-        return logit
-
-    # Specify the logging format.
-    fmt = (
-        '%(asctime)s|%(levelname)s|%(pathname)s:%(lineno)d:%(funcName)s'
-        ' (%(process)d)|%(message)s'
-    )
-    formatter = logging.Formatter(fmt)
-
-    # Configure our own handler (will send the log messages to Relays) and
-    # attach it to the logger object.
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    logit.addHandler(handler)
-    logit.setLevel(logging.DEBUG)
-    return logit
 
 
 def compileCameraMatrix(right, up, pos):
@@ -68,10 +44,11 @@ def compileCameraMatrix(right, up, pos):
     ret = ret.astype(np.float32)
     return ret.flatten('C').tobytes()
 
+
 class BaseHttp(tornado.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.logit = getLogger()
+        self.logit = tfds2.logging.getLogger('tornado')
 
     def write_error(self, status_code, **kwargs):
         if status_code in {404, 405}:
@@ -211,7 +188,7 @@ class Server:
         self._shutdown = False
 
         # Route Tornado's log messages through our Relays.
-        self.logit = getLogger()
+        self.logit = tfds2.logging.getLogger('tornado')
         self.logit.info('Server initialised')
 
     def sighandler(self, signum, frame):
