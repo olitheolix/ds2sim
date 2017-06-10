@@ -70,7 +70,6 @@ def compileCameraMatrix(cmat: list):
     ret = ret.astype(np.float32)
     return ret.flatten('C').tobytes()
 
-
 class BaseHttp(tornado.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -113,7 +112,17 @@ class RestGetCamera(BaseHttp):
             ret = cameras
         else:
             ret = {cname: cameras.get(cname, None) for cname in payload}
-        self.write(json.dumps(ret).encode('utf8'))
+
+        # Unpack the camera matrices.
+        out = {cname: None for cname in ret}
+        ret = {k: v for k, v in ret.items() if v is not None}
+        for cname, cdata in ret.items():
+            cmat = np.fromstring(cdata, np.float32).reshape(4, 4)
+            rot = cmat[:3, :3].tolist()
+            right, up = rot[:2]
+            pos = cmat[3, :3].tolist()
+            out[cname] = {'right': right, 'up': up, 'pos': pos}
+        self.write(json.dumps(out).encode('utf8'))
 
 
 class RestSetCamera(BaseHttp):
@@ -137,7 +146,18 @@ class RestSetCamera(BaseHttp):
             return
 
         # Select the action according to the command.
-        self.settings['cameras'].update(payload)
+        cameras = {}
+        for cname, cdata in payload.items():
+            right, up, pos = cdata['right'], cdata['up'], cdata['pos']
+            cmat = compileCameraMatrix(right + up + pos)
+            if cmat is None:
+                print(right, up, pos)
+                self.logit.warning('Invalid camera matrix')
+                self.send_error(400)
+                return
+            cameras[cname] = cmat
+
+        self.settings['cameras'].update(cameras)
 
 
 class RestRenderScene(BaseHttp):
@@ -171,8 +191,12 @@ class RestRenderScene(BaseHttp):
         # Select the action according to the command.
         render = self.settings['renderer']
         cmat = self.settings['cameras'].get(camera, None)
-        img = render.renderScene(cmat=cmat, width=width, height=height)
+        if cmat is None:
+            self.logit.warning(f'Cannot find camera <{camera}>')
+            self.send_error(400)
+            return
 
+        img = render.renderScene(cmat=cmat, width=width, height=height)
         if img is None:
             self.send_error(400)
         else:

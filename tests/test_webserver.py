@@ -1,6 +1,7 @@
 import json
 import urllib
 import tfds2.webserver
+import tfds2.rendering
 import unittest.mock as mock
 import tornado.web
 import tornado.testing
@@ -30,55 +31,91 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
             (r'/set-camera', tfds2.webserver.RestSetCamera),
             (r'/get-render', tfds2.webserver.RestRenderScene),
         ]
-        settings = {'cameras': {}, 'renderer': tfds2.rendering.Engine()}
+        self.m_renderer = mock.MagicMock()
+        settings = {'cameras': {}, 'renderer': self.m_renderer}
         return tornado.web.Application(handlers, **settings)
 
+    def test_getCameras_empty(self):
+        # No cameras exist, because we have not defined any. Therefore, any
+        # fetch request must succeed, but return None for the respective cameras.
+        for cnames in [['foo'], ['foo', 'bar']]:
+            body = urllib.parse.urlencode({'data': json.dumps(cnames)})
+            ret = self.fetch('/get-camera', method='POST', body=body)
+            assert ret.code == 200
+            expected = {name: None for name in cnames}
+            assert json.loads(ret.body.decode('utf8')) == expected
+
+        # When we query all cameras, then we must receive an empty dictionary.
+        body = urllib.parse.urlencode({'data': json.dumps(None)})
+        ret = self.fetch('/get-camera', method='POST', body=body)
+        assert ret.code == 200
+        assert json.loads(ret.body.decode('utf8')) == {}
+
     def test_getSetCameras(self):
-        for cnames in [None, ['foo']]:
-            body = urllib.parse.urlencode({'data': json.dumps(cnames)})
+        cameras = {
+            'foo': {'right': [1, 0, 0], 'up': [0, 1, 0], 'pos': [0, 0, 0]},
+            'bar': {'right': [0, 1, 0], 'up': [0, 0, 1], 'pos': [1, 2, 3]},
+        }
+
+        # Update/create the two cameras defined above.
+        body = urllib.parse.urlencode({'data': json.dumps(cameras)})
+        ret = self.fetch('/set-camera', method='POST', body=body)
+        assert ret.code == 200
+
+        # Fetch both cameras (ie. supply None, instead of a list of strings).
+        body = urllib.parse.urlencode({'data': json.dumps(None)})
+        ret = self.fetch('/get-camera', method='POST', body=body)
+        assert ret.code == 200
+        print(json.loads(ret.body.decode('utf8')))
+        assert cameras == json.loads(ret.body.decode('utf8'))
+
+        # Fetch the cameras individually.
+        for cname, cdata in cameras.items():
+            body = urllib.parse.urlencode({'data': json.dumps([cname])})
             ret = self.fetch('/get-camera', method='POST', body=body)
             assert ret.code == 200
-            ret = json.loads(ret.body.decode('utf8'))
-            expected = {} if cnames is None else {_: None for _ in cnames}
-            assert ret == expected
+            assert {cname: cdata} == json.loads(ret.body.decode('utf8'))
 
-        # Update/create a new camera.
-        cam_vecs = np.eye(3).flatten().tolist()
-        body = urllib.parse.urlencode({'data': json.dumps({'foo': cam_vecs})})
-        self.fetch('/set-camera', method='POST', body=body)
+        # Fetch both cameras in a single request.
+        body = urllib.parse.urlencode({'data': json.dumps(['foo', 'bar'])})
+        ret = self.fetch('/get-camera', method='POST', body=body)
+        assert ret.code == 200
+        assert cameras == json.loads(ret.body.decode('utf8'))
 
-        for cnames in [None, ['foo']]:
-            body = urllib.parse.urlencode({'data': json.dumps(cnames)})
-            ret = self.fetch('/get-camera', method='POST', body=body)
-            assert ret.code == 200
-            ret = json.loads(ret.body.decode('utf8'))
-            assert ret == {'foo': cam_vecs}
+        # Fetch two cameras, only one of which exists.
+        body = urllib.parse.urlencode({'data': json.dumps(['foo', 'error'])})
+        ret = self.fetch('/get-camera', method='POST', body=body)
+        assert ret.code == 200
+        ret = json.loads(ret.body.decode('utf8'))
+        assert ret['error'] is None
+        assert ret['foo'] == cameras['foo']
 
-    @mock.patch.object(tfds2.rendering.Engine, 'renderScene')
-    def test_getRenderedImage(self, m_ri):
+    @mock.patch.object(tfds2.webserver, 'compileCameraMatrix')
+    def test_getRenderedImage(self, m_ccm):
+        m_ccm.return_value = b'mock-cmat'
+        m_ri = self.m_renderer.renderScene
         width, height = 100, 200
 
-        request = {
-            'data': json.dumps({'camera': 'foo', 'width': width, 'height': height})}
+        payload = {'camera': 'foo', 'width': width, 'height': height}
+        request = {'data': json.dumps(payload)}
 
         # Request rendered image from non-existing camera.
         body = urllib.parse.urlencode(request)
-        m_ri.return_value = None
-        ret = self.fetch('/get-render', method='POST', body=body)
-        assert ret.code == 400
-        m_ri.assert_called_with(cmat=None, width=width, height=height)
+        assert self.fetch('/get-render', method='POST', body=body).code == 400
+        assert not m_ri.called
 
-        # Camera data: 3x3 matrix. The columns are right/up/position.
-        cam_vecs = np.eye(3).flatten().tolist()
-        body = urllib.parse.urlencode({'data': json.dumps({'foo': cam_vecs})})
-        self.fetch('/set-camera', method='POST', body=body)
+        # Define a camera.
+        cameras = {'foo': {'right': [0, 0, 1], 'up': [0, 0, 1], 'pos': [0, 0, 0]}}
+        body = urllib.parse.urlencode({'data': json.dumps(cameras)})
+        assert self.fetch('/set-camera', method='POST', body=body).code == 200
 
-        body = urllib.parse.urlencode(request)
+        # Request rendered image from existing camera.
         m_ri.return_value = b'foobar'
+        body = urllib.parse.urlencode(request)
         ret = self.fetch('/get-render', method='POST', body=body)
         assert ret.code == 200
-        m_ri.assert_called_with(cmat=cam_vecs, width=width, height=height)
         assert ret.body == b'foobar'
+        m_ri.assert_called_with(cmat=b'mock-cmat', width=width, height=height)
 
     def test_compileCameraMatrix_valid(self):
         """Serialise a test matrix."""
