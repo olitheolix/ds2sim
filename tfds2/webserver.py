@@ -35,20 +35,17 @@ def getLogger():
     return logit
 
 
-def compileCameraMatrix(cmat: list):
+def compileCameraMatrix(right, up, pos):
     """Return serialised camera matrix, or None if `cmat` is invalid.
 
-    The input `cmat` must be flat list of 9 values. The first three are the
-    'right' vector, the next three the 'up' vector, and the last three the
-    camera position.
     """
     # Sanity check `cmat` and construct the forward vector from the right/up
     # vectors.
     try:
         # Unpack the right/up/pos vectors.
-        cmat = np.array(cmat, np.float32)
-        assert cmat.shape == (9, )
-        right, up, pos = cmat[0:3], cmat[3:6], cmat[6:9]
+        cmat = np.vstack([right, up, pos]).astype(np.float32)
+        assert cmat.shape == (3, 3)
+        right, up, pos = cmat[0], cmat[1], cmat[2]
 
         # Ensure righ/up are unit vectors.
         assert (np.linalg.norm(right) - 1) < 1E-5, 'RIGHT is not a unit vector'
@@ -149,7 +146,7 @@ class RestSetCamera(BaseHttp):
         cameras = {}
         for cname, cdata in payload.items():
             right, up, pos = cdata['right'], cdata['up'], cdata['pos']
-            cmat = compileCameraMatrix(right + up + pos)
+            cmat = compileCameraMatrix(right, up, pos)
             if cmat is None:
                 print(right, up, pos)
                 self.logit.warning('Invalid camera matrix')

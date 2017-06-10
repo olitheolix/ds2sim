@@ -142,9 +142,8 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         ref_cmat = ref_cmat.flatten('C')
 
         # This 1x9 vector must be serialised into 4x4 float32 values.
-        src = np.hstack([right, up, pos])
         fun = tfds2.webserver.compileCameraMatrix
-        ret_cmat = fun(src.tolist())
+        ret_cmat = fun(right, up, pos)
         assert isinstance(ret_cmat, bytes)
         assert len(ret_cmat) == 16 * 4
 
@@ -155,28 +154,17 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
 
     def test_compileCameraMatrix_invalid(self):
         """Must return None if the matrix is invalid."""
-        # Create random position and orthonormal matrix.
-        pos = np.random.normal(0, 1, size=3)
-        R = np.linalg.svd(np.random.normal(size=(3, 3)))[0]
-        assert np.allclose(np.eye(3), R @ R.T)
-
         fun = tfds2.webserver.compileCameraMatrix
 
-        # Wrong data types (must be equivalent to list of lists).
-        assert fun(None) is None
-        assert fun('foo') is None
-        assert fun(['foo']) is None
-        assert fun([['foo'], [1, 2]]) is None
+        # Wrong data types.
+        assert fun(None, None, [1, 2, 3]) is None
 
-        # Wrong dimensions (must be 9x1)
-        assert fun(np.eye(3).tolist()) is None
-        assert fun([[1, 2, 3, 4], [5, 6, 7], [8, 9], [10]]) is None
+        # Wrong dimensions: must be 3 vectors with 3 elements.
+        assert fun([1, 2, 3, 4], [5, 6, 7], [8, 9]) is None
 
-        # Compile a valid set of camera vectors.
-        right, up = R[:2]
-        cam_vecs = np.hstack([right, up, pos])
-        assert fun(cam_vecs) is not None
+        # Right and Up are not orthogonal
+        right, pos = [1, 0, 0], [0, 0, 0]
+        assert fun(right, right, pos) is None
 
         # Rotation matrix is not orthonormal.
-        cam_vecs = np.hstack([right, right, pos])
-        assert fun(cam_vecs) is None
+        assert fun(right, [0, 2, 0], pos) is None
