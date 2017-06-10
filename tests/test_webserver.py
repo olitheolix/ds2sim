@@ -51,6 +51,26 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         assert ret.code == 200
         assert json.loads(ret.body.decode('utf8')) == {}
 
+    def test_getSetCameras_invalid(self):
+        # Missing 'position' field.
+        invalid_args = [
+            {'foo': {'right': [1, 0, 0], 'up': [0, 1, 0]}},
+            ['foo', None],
+            {'foo': [1, 0, 0]},
+            {'foo': {'right': [1, 0], 'up': [0, 1, 0]}},
+            {'foo': {'right': [1, 0, 0], 'up': [0, 1, 0], 'pos': None}},
+            {'foo': {'right': [1, 0, 0], 'up': [0, 1, 0], 'pos': [None, 0, 0]}},
+        ]
+
+        for arg in invalid_args:
+            body = urllib.parse.urlencode({'data': json.dumps(arg)})
+            ret = self.fetch('/set-camera', method='POST', body=body)
+            assert ret.code == 400
+
+            body = urllib.parse.urlencode({'data': json.dumps(None)})
+            ret = self.fetch('/get-camera', method='POST', body=body)
+            assert ret.code == 200 and json.loads(ret.body.decode('utf8')) == {}
+
     def test_getSetCameras(self):
         cameras = {
             'foo': {'right': [1, 0, 0], 'up': [0, 1, 0], 'pos': [0, 0, 0]},
@@ -66,7 +86,6 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         body = urllib.parse.urlencode({'data': json.dumps(None)})
         ret = self.fetch('/get-camera', method='POST', body=body)
         assert ret.code == 200
-        print(json.loads(ret.body.decode('utf8')))
         assert cameras == json.loads(ret.body.decode('utf8'))
 
         # Fetch the cameras individually.
@@ -141,7 +160,7 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         ref_cmat = ref_cmat.astype(np.float64)
         ref_cmat = ref_cmat.flatten('C')
 
-        # This 1x9 vector must be serialised into 4x4 float32 values.
+        # Camera vectors must be serialised into 4x4 float32 matrix.
         fun = tfds2.webserver.compileCameraMatrix
         ret_cmat = fun(right, up, pos)
         assert isinstance(ret_cmat, bytes)

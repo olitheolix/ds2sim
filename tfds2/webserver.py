@@ -45,6 +45,7 @@ def compileCameraMatrix(right, up, pos):
         # Unpack the right/up/pos vectors.
         cmat = np.vstack([right, up, pos]).astype(np.float32)
         assert cmat.shape == (3, 3)
+        assert not any(np.isnan(cmat.flatten()))
         right, up, pos = cmat[0], cmat[1], cmat[2]
 
         # Ensure righ/up are unit vectors.
@@ -144,17 +145,18 @@ class RestSetCamera(BaseHttp):
 
         # Select the action according to the command.
         cameras = {}
-        for cname, cdata in payload.items():
-            right, up, pos = cdata['right'], cdata['up'], cdata['pos']
-            cmat = compileCameraMatrix(right, up, pos)
-            if cmat is None:
-                print(right, up, pos)
-                self.logit.warning('Invalid camera matrix')
-                self.send_error(400)
-                return
-            cameras[cname] = cmat
-
-        self.settings['cameras'].update(cameras)
+        try:
+            assert isinstance(payload, dict)
+            for cname, cdata in payload.items():
+                right, up, pos = cdata['right'], cdata['up'], cdata['pos']
+                cmat = compileCameraMatrix(right, up, pos)
+                assert cmat is not None
+                print('check', cmat)
+                cameras[cname] = cmat
+            self.settings['cameras'].update(cameras)
+        except (KeyError, AssertionError, TypeError):
+            self.logit.warning('Invalid camera matrix')
+            self.send_error(400)
 
 
 class RestRenderScene(BaseHttp):
