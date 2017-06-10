@@ -127,7 +127,7 @@ class ViewerWidget(QtWidgets.QWidget):
         super().__init__(parent)
 
         assert isinstance(camera, str)
-        self.cam_name = camera
+        self.camera_name = camera
         self.host = f'http://{host}:{port}'
 
         # Labels to display the scene image.
@@ -230,7 +230,7 @@ class ViewerWidget(QtWidgets.QWidget):
             c.setShape(QtCore.Qt.ArrowCursor)
         self.setCursor(c)
 
-    def updateCamera(self):
+    def updateLocalCamera(self):
         if not self.pos_before_grab:
             return
 
@@ -250,10 +250,22 @@ class ViewerWidget(QtWidgets.QWidget):
         # Send the new camera position to the Horde host.
         self.camera.update(phi, theta, dx, 0, dz)
 
-    def fetchNextFrame(self):
-        right, up, forward, pos = self.camera.getCameraVectors()
+    def updateServerCamera(self):
+        right, up, _, pos = self.camera.getCameraVectors()
+        payload = {'right': right.tolist(), 'up': up.tolist(), 'pos': pos.tolist()}
+        data = {'data': json.dumps({self.camera_name: payload})}
+        try:
+            ret = requests.post(self.host + '/set-camera', data=data)
+        except (TypeError, requests.exceptions.ConnectionError):
+            print('Connection Error')
+            return
 
-        data = {'data': json.dumps({'camera': 'foo', 'width': 100, 'height': 100})}
+        if ret.status_code != 200:
+            print('Invalid request')
+
+    def fetchNextFrame(self):
+        payload = {'camera': self.camera_name, 'width': 512, 'height': 512}
+        data = {'data': json.dumps(payload)}
         try:
             ret = requests.post(self.host + '/get-render', data=data)
         except (TypeError, requests.exceptions.ConnectionError):
@@ -299,7 +311,8 @@ class ViewerWidget(QtWidgets.QWidget):
         self.killTimer(event.timerId())
 
         # Update the camera position.
-        self.updateCamera()
+        self.updateLocalCamera()
+        self.updateServerCamera()
 
         # Fetch the next frame.
         t0 = time.time()
