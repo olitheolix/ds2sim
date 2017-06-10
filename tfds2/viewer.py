@@ -87,12 +87,18 @@ class ViewerWidget(QtWidgets.QWidget):
         self.host = f'http://{host}:{port}'
 
         # Labels to display the scene image.
-        self.l_img = QtWidgets.QLabel()
-        self.l_img.setPixmap(QtGui.QPixmap('scene.jpg'))
+        self.label_img = QtWidgets.QLabel()
+        self.label_img.setPixmap(QtGui.QPixmap('scene.jpg'))
+        self.label_fetch = QtWidgets.QLabel('Classify: 0 ms')
+        self.label_classify = QtWidgets.QLabel('Fetch: 0 ms')
 
         # Add the just created display elements into a layout.
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.l_img)
+        layout_bar = QtWidgets.QHBoxLayout()
+        layout_bar.addWidget(self.label_fetch)
+        layout_bar.addWidget(self.label_classify)
+        layout.addWidget(self.label_img)
+        layout.addLayout(layout_bar)
         self.setLayout(layout)
         self.width, self.height = 512, 512
 
@@ -191,17 +197,24 @@ class ViewerWidget(QtWidgets.QWidget):
 
         # Send the new camera position to the Horde host.
         self.camera.update(phi, theta, dx, 0, dz)
+
+    def fetchNextFrame(self):
         right, up, forward, pos = self.camera.getCameraVectors()
 
         data = {'data': json.dumps({'camera': 'foo', 'width': 100, 'height': 100})}
         try:
             ret = requests.post(self.host + '/get-render', data=data)
+            return ret.content
         except (TypeError, requests.exceptions.ConnectionError):
             print('Connection Error')
-            return
-        self.showPixmap(ret.content)
 
-    def showPixmap(self, img):
+    def classifyImage(self, img):
+        pass
+
+    def drawBBoxes(self, img, boxes):
+        pass
+
+    def replaceImage(self, img):
         if img is None:
             return
 
@@ -221,7 +234,7 @@ class ViewerWidget(QtWidgets.QWidget):
             QtGui.QImage.Format_RGB888)
 
         # Install the image as the new pixmap for the label.
-        self.l_img.setPixmap(QtGui.QPixmap(qimg))
+        self.label_img.setPixmap(QtGui.QPixmap(qimg))
 
     def timerEvent(self, event):
         self.killTimer(event.timerId())
@@ -229,6 +242,19 @@ class ViewerWidget(QtWidgets.QWidget):
         # Update the camera position if we have grabbed the mouse.
         if self.mouseGrab:
             self.updateCamera()
+
+            t0 = time.time()
+            img = self.fetchNextFrame()
+            etime = int(1000 * (time.time() - t0))
+            self.label_fetch.setText(f'Fetch: {etime:,} ms')
+
+            t0 = time.time()
+            ml_img = self.classifyImage(img)
+            etime = int(1000 * (time.time() - t0))
+            self.label_classify.setText(f'Classify: {etime:,} ms')
+
+            img = img if ml_img is None else ml_img
+            self.replaceImage(img)
 
         self.drawTimer = self.startTimer(1000)
 
@@ -308,4 +334,4 @@ class MainWindow(QtWidgets.QWidget):
             # Move cursor into the widget (improves usability).
             self.cursor().setPos(self.geometry().center())
         else:
-            self.drawTimer = self.startTimer(10)
+            self.drawTimer = self.startTimer(50)
