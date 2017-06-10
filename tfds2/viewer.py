@@ -291,7 +291,7 @@ class ViewerWidget(QtWidgets.QWidget):
     def drawBBoxes(self, img, boxes):
         pass
 
-    def replaceImage(self, img):
+    def displayScene(self, img):
         # Sanity check: must be an 8Bit RGB image.
         try:
             assert isinstance(img, np.ndarray)
@@ -330,7 +330,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.label_classify.setText(f'Classify: {etime:,} ms')
 
         # Display the image.
-        self.replaceImage(img if ml_img is None else ml_img)
+        self.displayScene(img if ml_img is None else ml_img)
 
         # Reset the timer.
         self.drawTimer = self.startTimer(1000)
