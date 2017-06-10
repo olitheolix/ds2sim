@@ -145,7 +145,6 @@ class RestRenderScene(BaseHttp):
         super().__init__(*args, **kwargs)
 
     def post(self):
-#        print('check1', self.get_body_arguments())
         try:
             payload = self.get_body_argument('data')
         except tornado.web.MissingArgumentError:
@@ -154,7 +153,6 @@ class RestRenderScene(BaseHttp):
             return
 
         # Parse JSON request.
-        print('check2', payload)
         try:
             payload = json.loads(payload)
         except json.decoder.JSONDecodeError:
