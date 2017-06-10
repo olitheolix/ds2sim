@@ -183,11 +183,11 @@ class RestRenderScene(BaseHttp):
 
 
 class Server(multiprocessing.Process):
-    def __init__(self, host='127.0.0.1', port=9095):
+    def __init__(self, host='127.0.0.1', port=9095, debug=False):
         super().__init__()
 
         self.host, self.port = host, port
-        self.debug = True
+        self.debug = debug
         self._shutdown = multiprocessing.Event()
 
         # Route Tornado's log messages through our Relays.
