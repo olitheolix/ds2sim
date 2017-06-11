@@ -128,7 +128,6 @@ class RestSetCamera(BaseHttp):
                 right, up, pos = cdata['right'], cdata['up'], cdata['pos']
                 cmat = compileCameraMatrix(right, up, pos)
                 assert cmat is not None
-                print('check', cmat)
                 cameras[cname] = cmat
             self.settings['cameras'].update(cameras)
         except (KeyError, AssertionError, TypeError):
