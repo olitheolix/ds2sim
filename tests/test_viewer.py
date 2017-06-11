@@ -1,5 +1,5 @@
 import PyQt5.QtWidgets as QtWidgets
-import tfds2.viewer
+import ds2server.viewer
 import numpy as np
 
 
@@ -19,7 +19,7 @@ class TestClassifiedImageLabel:
         pass
 
     def test_setMLRegions_bogus_data(self):
-        widget = tfds2.viewer.ClassifiedImageLabel()
+        widget = ds2server.viewer.ClassifiedImageLabel()
 
         # Construct several invalid arguments, that is, any argument that does
         # is not a list of the 9 elements [x, y, w, h, r, g, b, a, txt].
@@ -32,7 +32,7 @@ class TestClassifiedImageLabel:
             assert widget.ml_regions == []
 
     def test_setMLRegions_valid(self):
-        widget = tfds2.viewer.ClassifiedImageLabel()
+        widget = ds2server.viewer.ClassifiedImageLabel()
 
         assert widget.ml_regions == []
         assert widget.setMLRegions([]) is True

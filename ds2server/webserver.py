@@ -5,8 +5,8 @@ import tornado.auth
 import tornado.websocket
 import tornado.httpserver
 import numpy as np
-import tfds2.logging
-import tfds2.rendering
+import ds2server.logging
+import ds2server.rendering
 
 from tornado.log import enable_pretty_logging
 
@@ -48,7 +48,7 @@ def compileCameraMatrix(right, up, pos):
 class BaseHttp(tornado.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.logit = tfds2.logging.getLogger('tornado')
+        self.logit = ds2server.logging.getLogger('tornado')
 
     def write_error(self, status_code, **kwargs):
         if status_code in {404, 405}:
@@ -188,7 +188,7 @@ class Server:
         self._shutdown = False
 
         # Route Tornado's log messages through our Relays.
-        self.logit = tfds2.logging.getLogger('tornado')
+        self.logit = ds2server.logging.getLogger('tornado')
         self.logit.info('Server initialised')
 
     def sighandler(self, signum, frame):
@@ -232,7 +232,7 @@ class Server:
         settings = {
             'debug': self.debug,
             'cameras': {},
-            'renderer': tfds2.rendering.Engine(),
+            'renderer': ds2server.rendering.Engine(),
         }
 
         # Install the handlers and create the Tornado instance.

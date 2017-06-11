@@ -1,7 +1,7 @@
 import json
 import urllib
-import tfds2.webserver
-import tfds2.rendering
+import ds2server.webserver
+import ds2server.rendering
 import unittest.mock as mock
 import tornado.web
 import tornado.testing
@@ -27,9 +27,9 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
 
     def get_app(self):
         handlers = [
-            (r'/get-camera', tfds2.webserver.RestGetCamera),
-            (r'/set-camera', tfds2.webserver.RestSetCamera),
-            (r'/get-render', tfds2.webserver.RestRenderScene),
+            (r'/get-camera', ds2server.webserver.RestGetCamera),
+            (r'/set-camera', ds2server.webserver.RestSetCamera),
+            (r'/get-render', ds2server.webserver.RestRenderScene),
         ]
         self.m_renderer = mock.MagicMock()
         settings = {'cameras': {}, 'renderer': self.m_renderer}
@@ -109,7 +109,7 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         assert ret['error'] is None
         assert ret['foo'] == cameras['foo']
 
-    @mock.patch.object(tfds2.webserver, 'compileCameraMatrix')
+    @mock.patch.object(ds2server.webserver, 'compileCameraMatrix')
     def test_getRenderedImage(self, m_ccm):
         m_ccm.return_value = b'mock-cmat'
         m_ri = self.m_renderer.renderScene
@@ -161,7 +161,7 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         ref_cmat = ref_cmat.flatten('C')
 
         # Camera vectors must be serialised into 4x4 float32 matrix.
-        fun = tfds2.webserver.compileCameraMatrix
+        fun = ds2server.webserver.compileCameraMatrix
         ret_cmat = fun(right, up, pos)
         assert isinstance(ret_cmat, bytes)
         assert len(ret_cmat) == 16 * 4
@@ -173,7 +173,7 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
 
     def test_compileCameraMatrix_invalid(self):
         """Must return None if the matrix is invalid."""
-        fun = tfds2.webserver.compileCameraMatrix
+        fun = ds2server.webserver.compileCameraMatrix
 
         # Wrong data types.
         assert fun(None, None, [1, 2, 3]) is None
