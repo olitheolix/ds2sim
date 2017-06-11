@@ -112,7 +112,18 @@ def unpackCIFAR10(dst_path):
 def unpackDS2(dst_path):
     src_path = os.path.dirname(os.path.abspath(__file__))
     src_path = os.path.join(src_path, '..', 'dataset')
-    tar = tarfile.open(os.path.join(src_path, 'ds2.tar.gz'), 'r:gz')
+    fname_ds2 = os.path.join(src_path, 'ds2.tar.gz')
+
+    # Download the DS@ dataset, unless it already exists.
+    if not os.path.exists(fname_ds2):
+        url = 'https://s3-ap-southeast-2.amazonaws.com/olitheolix/dataset/ds2.tar.gz'
+        print(f'Downloading DS2 Dataset from <{url}>')
+        urllib.request.urlretrieve(url, filename=fname_ds2)
+        f = urllib.request.urlopen(url)
+        open(fname_ds2, 'wb').write(f.read())
+        del url, f
+
+    tar = tarfile.open(fname_ds2, 'r:gz')
     tar.extractall(dst_path)
     tar.close()
 
