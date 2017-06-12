@@ -231,7 +231,7 @@ class Server:
         settings = {
             'debug': self.debug,
             'cameras': {},
-            'renderer': ds2server.rendering.Engine(),
+            'renderer': ds2server.rendering.getEngine(True),
         }
 
         # Install the handlers and create the Tornado instance.
