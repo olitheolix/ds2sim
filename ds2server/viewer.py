@@ -340,7 +340,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.displayScene(img if ml_img is None else ml_img)
 
         # Reset the timer.
-        self.drawTimer = self.startTimer(100)
+        self.drawTimer = self.startTimer(50)
 
 
 class MainWindow(QtWidgets.QWidget):
