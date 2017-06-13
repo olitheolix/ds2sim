@@ -45,10 +45,16 @@ class RotateScaleShift(Augmentor.Operations.Operation):
         return Image.fromarray(out)
 
 
-def unpackCIFAR10(dst_path):
-    src_path = os.path.dirname(os.path.abspath(__file__))
-    src_path = os.path.join(src_path, '..', 'dataset')
-    fname_cifar10 = os.path.join(src_path, 'cifar10.tar.gz')
+def makeFolder(dir_name):
+    try:
+        os.mkdir(dir_name)
+    except FileExistsError:
+        pass
+
+
+def unpackCIFAR10(tmp_dir, cache_dir):
+    makeFolder(cache_dir)
+    fname_cifar10 = os.path.join(cache_dir, 'cifar10.tar.gz')
 
     # Download the CIFAR10 dataset, unless it already exists.
     if not os.path.exists(fname_cifar10):
@@ -90,11 +96,11 @@ def unpackCIFAR10(dst_path):
     all_features = all_features[:1000]
     all_labels = all_labels[:1000]
 
-    dst_path = os.path.join(dst_path, 'cifar10')
+    tmp_dir = os.path.join(tmp_dir, 'cifar10')
 
     # Do nothing if the folder already exists.
     try:
-        os.mkdir(dst_path)
+        os.mkdir(tmp_dir)
     except FileExistsError:
         pass
 
@@ -106,15 +112,14 @@ def unpackCIFAR10(dst_path):
         img = img.convert('RGB')
         img = img.resize((128, 128), resample=Image.BICUBIC)
 
-        img.save(os.path.join(dst_path, f'{idx:04d}.jpg'))
+        img.save(os.path.join(tmp_dir, f'{idx:04d}.jpg'))
 
 
-def unpackDS2(dst_path):
-    src_path = os.path.dirname(os.path.abspath(__file__))
-    src_path = os.path.join(src_path, '..', 'dataset')
-    fname_ds2 = os.path.join(src_path, 'ds2.tar.gz')
+def unpackDS2(tmp_dir, cache_dir):
+    makeFolder(cache_dir)
+    fname_ds2 = os.path.join(cache_dir, 'ds2.tar.gz')
 
-    # Download the DS@ dataset, unless it already exists.
+    # Download the DS2 dataset, unless it already exists.
     if not os.path.exists(fname_ds2):
         url = 'https://s3-ap-southeast-2.amazonaws.com/olitheolix/dataset/ds2.tar.gz'
         print(f'Downloading DS2 Dataset from <{url}>')
@@ -124,7 +129,7 @@ def unpackDS2(dst_path):
         del url, f
 
     tar = tarfile.open(fname_ds2, 'r:gz')
-    tar.extractall(dst_path)
+    tar.extractall(tmp_dir)
     tar.close()
 
 
@@ -196,18 +201,18 @@ def createSceneImage(data_path):
 
 def main():
     num_samples = 100
-    data_path = os.path.dirname(os.path.abspath(__file__))
-    data_path = os.path.join(data_path, '..', 'dataset')
+    data_dir = os.path.join(os.getcwd(), 'dataset')
+    makeFolder(data_dir)
 
     with tempfile.TemporaryDirectory() as tdir:
-        unpackDS2(tdir)
-        unpackCIFAR10(tdir)
+        unpackDS2(tdir, 'cache')
+        unpackCIFAR10(tdir, 'cache')
 
-        augmentDS2(tdir, data_path, num_samples)
-        augmentCIFAR10(tdir, data_path, num_samples)
+        augmentDS2(tdir, data_dir, num_samples)
+        augmentCIFAR10(tdir, data_dir, num_samples)
 
     for i in range(num_samples):
-        createSceneImage(data_path)
+        createSceneImage(data_dir)
 
 
 if __name__ == '__main__':
