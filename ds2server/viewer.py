@@ -140,11 +140,20 @@ class ViewerWidget(QtWidgets.QWidget):
 
         # Add the just created display elements into a layout.
         layout = QtWidgets.QVBoxLayout()
-        layout_bar = QtWidgets.QHBoxLayout()
+        layout_bar = QtWidgets.QVBoxLayout()
         layout_bar.addWidget(self.label_fetch)
         layout_bar.addWidget(self.label_classify)
         layout.addWidget(self.label_img)
         layout.addLayout(layout_bar)
+
+        # Ensure the labels do not grow vertically.
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum)
+        self.label_fetch.setSizePolicy(sizePolicy)
+        self.label_classify.setSizePolicy(sizePolicy)
+
+        # policy = self.label_fetch.sizePolicy()
+        # policy.setVerticalPolicy
         self.setLayout(layout)
         self.width, self.height = 512, 512
 
