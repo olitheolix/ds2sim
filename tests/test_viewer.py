@@ -21,7 +21,7 @@ class TestClassifiedImageLabel:
     def test_setMLRegions_bogus_data(self):
         widget = ds2server.viewer.ClassifiedImageLabel()
 
-        # Construct several invalid arguments, that is, any argument that does
+        # Construct several invalid arguments, that is, any argument that
         # is not a list of the 9 elements [x, y, w, h, r, g, b, a, txt].
         invalid = [
             None, [None], [(1, 2, 3)], [list(range(9)), list(range(8))]
