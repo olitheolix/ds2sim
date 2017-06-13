@@ -1,0 +1,6 @@
+#!env python
+# -*- coding: utf-8 -*-
+
+import ds2server.generate_dataset
+
+ds2server.generate_dataset.main()
