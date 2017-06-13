@@ -1,0 +1,51 @@
+#!env python
+# -*- coding: utf-8 -*-
+
+import urllib
+import textwrap
+import argparse
+import ds2server.webserver
+
+
+def parseCmdline():
+    """Parse the command line arguments."""
+    description = textwrap.dedent(f'''\
+        Start image server to simulate the space scene.
+
+        Usage examples:
+          {__file__}
+          {__file__} --host http://127.0.0.1:9095
+    ''')
+
+    # Create a parser and program description.
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    padd = parser.add_argument
+
+    # Add the command line options.
+    default_host = 'http://127.0.0.1:9095'
+    padd('--host', metavar='', type=str, default=default_host,
+         help='Host (default: {})'.format(default_host))
+    padd('--server', action='store_true', help='Start Webserver')
+    padd('--debug', action='store_true', help='Use Debug mode')
+
+    # Parse the actual arguments.
+    param = parser.parse_args()
+
+    # Parse the host URL to determine the scheme, hostname, and port.
+    host = urllib.parse.urlparse(param.host)
+    param.host = host.hostname
+    param.port = host.port or 9095
+    return param
+
+
+def main():
+    param = parseCmdline()
+    server = ds2server.webserver.Server(param.host, param.port, param.debug)
+    server.run()
+
+
+if __name__ == '__main__':
+    main()
