@@ -345,7 +345,7 @@ class ViewerWidget(QtWidgets.QWidget):
 
 class MainWindow(QtWidgets.QWidget):
     """Arrange the camera widgets."""
-    def __init__(self, cameras: dict, host, port):
+    def __init__(self, cameras: dict, host='127.0.0.1', port=9095):
         super().__init__(parent=None)
         self.logit = ds2server.ds2logger.getLogger('Viewer')
 
