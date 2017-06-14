@@ -15,6 +15,15 @@ import ds2server.ds2logger
 from PIL import Image
 
 
+class DS2Text:
+    def __init__(self, x, y, text):
+        assert isinstance(x, (int, float)) and 0 <= x <= 1
+        assert isinstance(y, (int, float)) and 0 <= y <= 1
+        assert isinstance(text, str)
+        self.x, self.y = x, y
+        self.text = text
+
+
 class Camera:
     """ Free flight camera.
 
@@ -86,41 +95,39 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
         self.setScaledContents(True)
         self.ml_regions = []
 
-    def setMLRegions(self, regions):
-        try:
-            assert isinstance(regions, (tuple, list, np.ndarray))
-            if len(regions) == 0:
-                self.ml_regions.clear()
-                return True
-            regions = np.array(regions)
-            assert regions.ndim == 2
-            rect = np.array(regions[:, :4], np.float32)
-            rect = np.clip(rect, 0, 1)
-            rgba = 255 * np.array(regions[:, 4:8], np.float32)
-            rgba = np.clip(rgba, 0, 255)
-            rgba = rgba.astype(np.int32)
-            txt = [str(_) for _ in regions[:, 8]]
-        except (IndexError, AssertionError, ValueError):
-            self.logit.warn('Regions are invalid')
+    def setMLRegions(self, overlays):
+        self.ml_regions.clear()
+        if not isinstance(overlays, (tuple, list)):
             return False
 
-        rect, rgba = rect.tolist(), rgba.tolist()
-        self.ml_regions = [_ for _ in zip(rect, rgba, txt)]
-        return True
+        ok = True
+        for el in overlays:
+            try:
+                pen, data = el
+                assert isinstance(pen, QtGui.QPen)
+                assert isinstance(data, (QtCore.QRectF, DS2Text))
+                self.ml_regions.append((pen, data))
+            except (ValueError, TypeError, AssertionError):
+                ok = False
+        return ok
 
     def paintEvent(self, event):
         super().paintEvent(event)
 
         painter = QtGui.QPainter(self)
-
         width, height = self.rect().width(), self.rect().height()
-        for rect, rgba, txt in self.ml_regions:
-            painter.setPen(QtGui.QPen(QtGui.QColor(*rgba)))
 
-            x, w = rect[0] * width, rect[2] * width
-            y, h = rect[1] * height, rect[3] * height
-            painter.drawRect(x, y, w, h)
-            painter.drawText(x, y, txt)
+        # Draw each element specified by the user.
+        for wpen, wtype in self.ml_regions:
+            painter.setPen(wpen)
+            if isinstance(wtype, QtCore.QRectF):
+                x, y = wtype.x() * width, wtype.y() * height
+                w, h = wtype.width() * width, wtype.height() * height
+                painter.drawRect(x, y, w, h)
+            elif isinstance(wtype, DS2Text):
+                painter.drawText(wtype.x * width, wtype.y * height, wtype.text)
+            else:
+                print('Unknown', wtype)
 
 
 class ViewerWidget(QtWidgets.QWidget):
@@ -171,9 +178,10 @@ class ViewerWidget(QtWidgets.QWidget):
         # Start the timer.
         self.drawTimer = self.startTimer(500)
         self.last_ts = time.time()
+        self.frame_cnt = 0
 
-    def setMLRegions(self, regions):
-        self.label_img.setMLRegions(regions)
+    def setMLRegions(self, overlays):
+        return self.label_img.setMLRegions(overlays)
 
     def centerCursor(self):
         """Place the cursor in the pre-defined center position. """
