@@ -366,6 +366,7 @@ class MainWindow(QtWidgets.QWidget):
         super().__init__(parent=None)
         self.logit = ds2server.ds2logger.getLogger('Viewer')
         self.setWindowTitle('DS2 Demo')
+        self.move(100, 100)
 
         # Points to widget that has mouse grab.
         self.active_camera = None
