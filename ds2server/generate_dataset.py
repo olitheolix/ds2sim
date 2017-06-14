@@ -117,26 +117,19 @@ def unpackCIFAR10(tmp_dir, cache_dir):
 
 def unpackDS2(tmp_dir, cache_dir):
     makeFolder(cache_dir)
-    fname_ds2 = os.path.join(cache_dir, 'ds2.tar.gz')
 
-    # Download the DS2 dataset, unless it already exists.
-    if not os.path.exists(fname_ds2):
-        url = 'https://s3-ap-southeast-2.amazonaws.com/olitheolix/dataset/ds2.tar.gz'
-        print(f'Downloading DS2 Dataset from <{url}>')
-        urllib.request.urlretrieve(url, filename=fname_ds2)
-        f = urllib.request.urlopen(url)
-        open(fname_ds2, 'wb').write(f.read())
-        del url, f
+    path = os.path.dirname(os.path.abspath(__file__))
+    fname_tar = os.path.join(path, 'dataset', 'ds2.tar.gz')
 
-    tar = tarfile.open(fname_ds2, 'r:gz')
+    tar = tarfile.open(fname_tar, 'r:gz')
     tar.extractall(tmp_dir)
     tar.close()
 
 
 def augmentDS2(src_path, dst_path, N):
     for i in range(10):
-        src = os.path.join(src_path, str(i))
-        dst = os.path.join(dst_path, str(i))
+        src = os.path.join(src_path, f'{i:02d}')
+        dst = os.path.join(dst_path, f'{i:02d}')
 
         p = Augmentor.Pipeline(src, dst, 'JPEG')
         p.add_operation(RotateScaleShift(probability=1))
@@ -168,7 +161,7 @@ def createSceneImage(data_path):
     # Each row features cubes with the same number.
     for row in range(10):
         # Get N random pictures of cubes with number 'row' on it.
-        fnames = glob.glob(os.path.join(data_path, str(row), '*'))
+        fnames = glob.glob(os.path.join(data_path, f'{row:02d}', '*'))
         fnames = random.sample(fnames, N)
 
         # Arrange the N cubes in a line.

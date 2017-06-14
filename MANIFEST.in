@@ -3,7 +3,7 @@ include README.md
 include dataset/ds2.tar.gz
 
 recursive-include tests *
-recursive-include ds2server/pre-rendered *
+recursive-include ds2server/dataset *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 

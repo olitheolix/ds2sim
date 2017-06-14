@@ -21,7 +21,7 @@ def getEngine(disable_horde=False):
 class DummyHorde:
     def __init__(self):
         img_path = os.path.dirname(os.path.abspath(__file__))
-        img_path = os.path.join(img_path, 'pre-rendered')
+        img_path = os.path.join(img_path, 'dataset', 'flightpath')
         fnames = glob.glob(os.path.join(img_path, '*.jpg'))
         fnames.sort()
         self.fnames = fnames
