@@ -325,11 +325,16 @@ class ViewerWidget(QtWidgets.QWidget):
             img.data, img.shape[1], img.shape[0], img.strides[0],
             QtGui.QImage.Format_RGB888)
 
-        # Install the image as the new pixmap for the label.
+        # Display the scene on the label.
         self.label_img.setPixmap(QtGui.QPixmap(qimg))
 
     def timerEvent(self, event):
+        # Acknowledge timer.
         self.killTimer(event.timerId())
+        self.frame_cnt += 1
+
+        # Record the screen.
+        # self.grab().save(f'/tmp/delme_{self.frame_cnt:04d}.jpg')
 
         # Update the camera position.
         self.updateLocalCamera()
