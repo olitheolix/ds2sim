@@ -25,7 +25,7 @@ class TestClassifiedImageLabel:
     def teardown_method(self, method):
         pass
 
-    def test_setMLRegions_bogus_data(self):
+    def test_setMLOverlays_bogus_data(self):
         widget = ds2server.viewer.ClassifiedImageLabel()
 
         # Construct several invalid arguments, that is, any argument that
@@ -37,41 +37,41 @@ class TestClassifiedImageLabel:
             [DS2Text(.1, .2, 'foo'), QPen(QColor())],
         ]
         for arg in invalid:
-            assert widget.setMLRegions(arg) is False
-            assert widget.ml_regions == []
+            assert widget.setMLOverlays(arg) is False
+            assert widget.ml_overlays == []
 
         # Convenience: define both a valid and invalid entry.
         valid = [QPen(QColor()), DS2Text(.1, .2, 'foo')]
         invalid = [DS2Text(.1, .2, 'foo'), QPen(QColor())]
 
         # The valid entry must be accepted.
-        assert widget.setMLRegions([valid]) is True
-        assert widget.ml_regions[0][0] is valid[0]
-        assert widget.ml_regions[0][1] is valid[1]
+        assert widget.setMLOverlays([valid]) is True
+        assert widget.ml_overlays[0][0] is valid[0]
+        assert widget.ml_overlays[0][1] is valid[1]
 
         # The invalid entry must be rejected. Also, the internal list of
         # overlays must be cleared.
-        assert widget.setMLRegions([invalid]) is False
-        assert widget.ml_regions == []
+        assert widget.setMLOverlays([invalid]) is False
+        assert widget.ml_overlays == []
 
         # When passing a valid and invalid element then the return value must
         # still be False. However, the valid element must have made it into the
         # overlay list.
-        assert widget.setMLRegions([valid, invalid]) is False
-        assert widget.ml_regions[0][0] is valid[0]
-        assert widget.ml_regions[0][1] is valid[1]
+        assert widget.setMLOverlays([valid, invalid]) is False
+        assert widget.ml_overlays[0][0] is valid[0]
+        assert widget.ml_overlays[0][1] is valid[1]
 
-    def test_setMLRegions_valid(self):
+    def test_setMLOverlays_valid(self):
         widget = ds2server.viewer.ClassifiedImageLabel()
 
         # Nothing must happen when we supply an empty list.
-        assert widget.ml_regions == []
-        assert widget.setMLRegions([]) is True
-        assert widget.ml_regions == []
+        assert widget.ml_overlays == []
+        assert widget.setMLOverlays([]) is True
+        assert widget.ml_overlays == []
 
         overlays = [
             [QPen(QColor(1, 2, 3, 4)), QRectF(0, 0, 0.5, 0.7)],
             [QPen(QColor(1, 2, 3, 4)), DS2Text(x=0.5, y=0.6, text='foo')],
         ]
-        assert widget.setMLRegions(overlays) is True
-        assert len(widget.ml_regions) == 2
+        assert widget.setMLOverlays(overlays) is True
+        assert len(widget.ml_overlays) == 2

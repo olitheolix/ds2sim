@@ -93,10 +93,10 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
         self.logit = ds2server.ds2logger.getLogger('Viewer')
         self.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.setScaledContents(True)
-        self.ml_regions = []
+        self.ml_overlays = []
 
-    def setMLRegions(self, overlays):
-        self.ml_regions.clear()
+    def setMLOverlays(self, overlays):
+        self.ml_overlays.clear()
         if not isinstance(overlays, (tuple, list)):
             return False
 
@@ -106,7 +106,7 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
                 pen, data = el
                 assert isinstance(pen, QtGui.QPen)
                 assert isinstance(data, (QtCore.QRectF, DS2Text))
-                self.ml_regions.append((pen, data))
+                self.ml_overlays.append((pen, data))
             except (ValueError, TypeError, AssertionError):
                 ok = False
         return ok
@@ -118,7 +118,7 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
         width, height = self.rect().width(), self.rect().height()
 
         # Draw each element specified by the user.
-        for wpen, wtype in self.ml_regions:
+        for wpen, wtype in self.ml_overlays:
             painter.setPen(wpen)
             if isinstance(wtype, QtCore.QRectF):
                 x, y = wtype.x() * width, wtype.y() * height
@@ -180,8 +180,8 @@ class ViewerWidget(QtWidgets.QWidget):
         self.last_ts = time.time()
         self.frame_cnt = 0
 
-    def setMLRegions(self, overlays):
-        return self.label_img.setMLRegions(overlays)
+    def setMLOverlays(self, overlays):
+        return self.label_img.setMLOverlays(overlays)
 
     def centerCursor(self):
         """Place the cursor in the pre-defined center position. """
