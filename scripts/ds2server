@@ -28,7 +28,6 @@ def parseCmdline():
     default_host = 'http://127.0.0.1:9095'
     padd('--host', metavar='', type=str, default=default_host,
          help='Host (default: {})'.format(default_host))
-    padd('--server', action='store_true', help='Start Webserver')
     padd('--debug', action='store_true', help='Use Debug mode')
 
     # Parse the actual arguments.
