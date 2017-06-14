@@ -45,15 +45,8 @@ class RotateScaleShift(Augmentor.Operations.Operation):
         return Image.fromarray(out)
 
 
-def makeFolder(dir_name):
-    try:
-        os.mkdir(dir_name)
-    except FileExistsError:
-        pass
-
-
 def unpackCIFAR10(tmp_dir, cache_dir):
-    makeFolder(cache_dir)
+    os.makedirs(cache_dir, exist_ok=True)
     fname_cifar10 = os.path.join(cache_dir, 'cifar10.tar.gz')
 
     # Download the CIFAR10 dataset, unless it already exists.
@@ -116,7 +109,7 @@ def unpackCIFAR10(tmp_dir, cache_dir):
 
 
 def unpackDS2(tmp_dir, cache_dir):
-    makeFolder(cache_dir)
+    os.makedirs(cache_dir, exist_ok=True)
 
     path = os.path.dirname(os.path.abspath(__file__))
     fname_tar = os.path.join(path, 'dataset', 'ds2.tar.gz')
@@ -149,7 +142,7 @@ def augmentCIFAR10(src_path, dst_path, N):
     p.sample(N)
 
 
-def createSceneImage(data_path):
+def createAlignedCubes(src_path, dst_path):
     N = 10
     dims = (128, 128, 3)
 
@@ -161,7 +154,7 @@ def createSceneImage(data_path):
     # Each row features cubes with the same number.
     for row in range(10):
         # Get N random pictures of cubes with number 'row' on it.
-        fnames = glob.glob(os.path.join(data_path, f'{row:02d}', '*'))
+        fnames = glob.glob(os.path.join(src_path, f'{row:02d}', '*'))
         fnames = random.sample(fnames, N)
 
         # Arrange the N cubes in a line.
@@ -180,11 +173,7 @@ def createSceneImage(data_path):
             out_img[y0:y1, x0:x1, :] = img
 
     # Ensure the destination folder exists.
-    dst_path = os.path.join(data_path, 'scene')
-    try:
-        os.mkdir(dst_path)
-    except FileExistsError:
-        pass
+    os.makedirs(dst_path, exist_ok=True)
 
     # Save the image as JPEG with a random name.
     out_img = Image.fromarray(out_img)
@@ -195,17 +184,29 @@ def createSceneImage(data_path):
 def main():
     num_samples = 100
     data_dir = os.path.join(os.getcwd(), 'dataset')
-    makeFolder(data_dir)
+    raw_dir = os.path.join(data_dir, 'plain')
+    augment_dir = os.path.join(data_dir, 'augmented')
+    aligned_dir = os.path.join(data_dir, 'aligned')
 
+    # Extract the raw data set.
+    if not os.path.exists(raw_dir):
+        print('Unpacking plain data')
+        os.makedirs(raw_dir, exist_ok=True)
+        unpackDS2(raw_dir, 'cache')
+
+    # Extract the raw data into a temporary folder, then run Augmentor on it.
+    # The results will be copied into the `augment_dir`.
     with tempfile.TemporaryDirectory() as tdir:
         unpackDS2(tdir, 'cache')
         unpackCIFAR10(tdir, 'cache')
 
-        augmentDS2(tdir, data_dir, num_samples)
-        augmentCIFAR10(tdir, data_dir, num_samples)
+        print('Augmenting data set')
+        augmentDS2(tdir, augment_dir, num_samples)
+        augmentCIFAR10(tdir, augment_dir, num_samples)
 
+    print('Create images with aligned cubes')
     for i in range(num_samples):
-        createSceneImage(data_dir)
+        createAlignedCubes(augment_dir, aligned_dir)
 
 
 if __name__ == '__main__':
