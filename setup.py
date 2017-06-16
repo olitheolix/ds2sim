@@ -20,7 +20,7 @@ test_requirements = [
 
 setup(
     name='ds2server',
-    version='0.3.0',
+    version='0.3.1',
     description="Fun with Machine Learning and Space Ships",
     long_description=readme + '\n\n',
     author="Oliver Nagy",
