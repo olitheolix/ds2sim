@@ -32,7 +32,7 @@ setup(
     license="Apache Software License 2.0",
     keywords='ds2server',
     test_suite='tests',
-    scripts=['scripts/ds2generate', 'scripts/ds2server'],
+    scripts=['scripts/ds2generate', 'scripts/ds2server', 'scripts/ds2drawboxes'],
     install_requires=requirements,
     tests_require=test_requirements,
     classifiers=[
