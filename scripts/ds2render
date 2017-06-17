@@ -1,0 +1,403 @@
+#!env python
+"""
+Render training- or fligh images into a user specified folder.
+
+Run this script with the -h option to see the possible render scenarios. Most
+notable, these include a flight path along a fixed trajectory ("flight"), or
+training images ("cubes" and "background").
+"""
+
+import os
+import sys
+import ds2sim.horde
+import pickle
+import logging
+import argparse
+import textwrap
+import PIL.Image
+
+import numpy as np
+
+
+def parseCmdline():
+    """Parse the command line arguments."""
+    description = textwrap.dedent(f'''\
+        Render DS2 related assets.
+
+        Examples:
+          ds2render --num-images 200 --num-cubes 300 flight
+          ds2render --num-images 20 cubes
+          ds2render --num-images 20 --resolution 512x512 background
+    ''')
+
+    # Create a parser and program description.
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    padd = parser.add_argument
+
+    # Add the command line options.
+    padd('mode', choices=['flight', 'cubes', 'background'],
+         help='Which content to render')
+    padd('--skybox', action='store_true', help='Add a skybox to mimic space')
+    padd('--dst-path', metavar='', type=str,
+         default=os.path.join(os.getcwd(), 'img'),
+         help='Where to write images')
+    padd('--resolution', metavar='', type=str, default='256x256',
+         help='Width x Height, eg "512x256"')
+    padd('--num-images', metavar='', type=int, default=10,
+         help='Number of images to render')
+    padd('--num-cubes', metavar='', type=int, default=200,
+         help='Number of cubes in flight scene (only useful in flight mode)')
+    padd('--jpg-quality', metavar='', type=int, default=90,
+         help='JPEG quality (default=90)')
+    padd('--seed', metavar='', type=int, default=0,
+         help='Seed value to ensure reproducible scenes')
+    padd('--fov', metavar='', type=int, default=45,
+         help='Field of view of camera')
+
+    # Parse the actual arguments.
+    param = parser.parse_args()
+
+    # Unpack and sanity check the resolution string.
+    try:
+        res = param.resolution.split('x')
+        assert len(res) == 2
+        width, height = [int(_) for _ in res]
+        assert width > 0 and height > 0
+        param.width, param.height = width, height
+        del param.resolution
+    except (ValueError, AssertionError):
+        print(f'Invalid resolution <{param.resolution}>')
+        sys.exit()
+
+    param.num_cubes = max(0, param.num_cubes)
+    param.num_frames = max(0, param.num_images)
+    return param
+
+
+def getLogger(name):
+    """Return a custom logger object for DS2 functionality."""
+    # Return the logger object if it has handler (means we have already
+    # configured it).
+    logit = logging.getLogger(name)
+
+    # Specify the logging format.
+    fmt = (
+        '%(asctime)s|%(levelname)s|%(pathname)s:%(lineno)d:%(funcName)s'
+        ' (%(process)d)|%(message)s'
+    )
+    formatter = logging.Formatter(fmt)
+
+    # Configure our own handler (will send the log messages to Relays) and
+    # attach it to the logger object.
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logit.addHandler(handler)
+    logit.setLevel(logging.DEBUG)
+    return logit
+
+
+def camVectorsToCamMatrix(right, up, pos):
+    if np.inner(right, up) > 1E-3:
+        return None
+
+    # Compute forward vector and assemble the rotation matrix.
+    forward = np.cross(right, up)
+    rot = np.vstack([right, up, forward])
+
+    ret = np.eye(4)
+    ret[:3, :3] = rot
+    ret[3, :3] = pos
+    ret = ret.astype(np.float32)
+    return ret.flatten('C').tobytes()
+
+
+def projectCubePositions(param, cmat, labels, cube_pos):
+    fov = param.fov / 2
+    fov = np.tan(fov * np.pi / 180)
+    aspect_ratio = param.width / param.height
+
+    cmat = np.fromstring(cmat, np.float32).reshape(4, 4)
+    assert cmat.shape == (4, 4)
+
+    tmp = (cube_pos - cmat[3, :3]) @ cmat[:3, :3].T
+    x, y, z = tmp[:, 0], tmp[:, 1], tmp[:, 2]
+    z = -z
+    del tmp, cmat
+
+    idx = np.nonzero(z > 0.1)
+    x, y, z, labels = x[idx], y[idx], z[idx], labels[idx]
+
+    x = x / (z * fov * aspect_ratio)
+    y = y / (z * fov)
+
+    bound = 1.05
+    cond_x = (-bound < x) & (x < bound)
+    cond_y = (-bound < y) & (y < bound)
+    idx = np.nonzero(cond_x & cond_y)
+    x, y, z, labels = x[idx], y[idx], z[idx], labels[idx]
+    del bound, cond_x, cond_y, idx
+
+    x = (x + 1) / 2
+    y = 1 - (y + 1) / 2
+
+    pos = np.vstack([x, y, z]).T
+    bb_hlen = np.vstack([4 / (aspect_ratio * z), 4 / z]).T
+    return pos, labels, bb_hlen
+
+
+def renderGroundTruthCubes(param):
+    """Render each of the ten cubes from different angles.
+
+    The angles are chosen at random, but are identical for all cubes.
+
+    The scene is devoid of other objects and has no skybox. In other words,
+    each image contains exactly one cube in the centre, and the background is
+    pure black.
+
+    Args:
+        param (namespace): command line parameters returned by argparse
+    """
+    h = ds2sim.horde.Engine(param.width, param.height, param.fov)
+    default_resources = h.loadDefaultResources()
+
+    # Add a default light. Then place it far away to mimic a sun.
+    lname = h.addLight()
+    pos = 2000 * np.array([0, 1, 1], np.float32)
+    tm = np.eye(4)
+    tm[2, :3] = pos / np.linalg.norm(pos)
+    tm[3, :3] = pos
+    h.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
+    del lname, pos, tm
+
+    # Make the platform invisible.
+    dst_path = os.path.join(param.dst_path, 'cubes')
+    h.h3dSetNodeTransform(default_resources['base'], 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    # Add all 10 cubes and set their size to zero to make them invisible.
+    nodes = {}
+    for i in range(10):
+        nodes[i] = h.addNode(default_resources[i])
+        h.setNodeTransPes(nodes[i], [0, 0, 0], [0, 0, 0], [0, 0, 0])
+
+    # Create a random orientation for the cube, a random position for the
+    # camera (but always pointed to the center), render each of the
+    # ten cube, and save each in their own file. Repeat this process as many
+    # times as was specified in the --num-images argument.
+    for i in range(param.num_images):
+        # Compute a random position on the unit sphere.
+        phi, theta = np.random.uniform(-1, 1, 2) * [2 * np.pi, np.pi]
+        pos = np.array([
+            np.sin(theta) * np.cos(phi),
+            np.sin(theta) * np.sin(phi),
+            np.cos(theta),
+        ])
+
+        # Compute a random right/up vector that is orthogonal to the position
+        # vector, since that one specifies the forward vector.
+        tmp = np.random.uniform(-1, 1, 3)
+        tmp = tmp / np.linalg.norm(tmp)
+        right = tmp - np.inner(tmp, pos) * pos
+        right = right / np.linalg.norm(right)
+        up = -np.cross(right, pos)
+
+        # Convert right/up/pos into a camera matrix. Also, adjust the camera
+        # distance to move it as close as possible without clipping the cube in
+        # the rendered image. This is an empirical value.
+        distance = 4.5
+        cmat = camVectorsToCamMatrix(right=right, up=up, pos=distance * pos)
+        tmp = np.fromstring(cmat, np.float32).reshape(4, 4)[:3, :3]
+        assert cmat is not None
+        del phi, theta, pos, right, up, distance, tmp
+
+        # Compute random orientation of cube. Every cube will have the same
+        # orientation.
+        u = np.linalg.svd(np.random.uniform(-1, 1, size=(3, 3)))[0]
+        tm = camVectorsToCamMatrix(right=u[0], up=u[1], pos=[0, 0, 0])
+        assert tm is not None
+        del u
+
+        # Render each cube into a file.
+        for j in range(10):
+            dst_path = os.path.join(param.dst_path, f'{j:02d}')
+            os.makedirs(dst_path, exist_ok=True)
+
+            # Apply the transform to the current cube.
+            h.setNodeTransMat(nodes[j], tm)
+
+            # Render the scene to an image.
+            img = h.renderScene(cmat, param.width, param.height, skybox=False)
+            img = PIL.Image.fromarray(np.flipud(img))
+            fname = os.path.join(dst_path, f'{i:04d}.jpg')
+            img.save(fname, 'jpeg', quality=param.jpg_quality)
+
+            # Set the scale to zero to make the cube invisible, because we only
+            # want to see one cube in each image, not all 10.
+            h.setNodeTransPes(nodes[j], [0, 0, 0], [0, 0, 0], [0, 0, 0])
+            del j, img
+        del tm
+    print(f'Saved pure cube images to <{dst_path}>')
+
+
+def renderGroundTruthBackground(param):
+    """Render a scene devoid of cubes from random angles/positions.
+
+    The scene still comprises the skybox and a randomly placed platform.
+
+    Args:
+        param (namespace): command line parameters returned by argparse
+    """
+    h = ds2sim.horde.Engine(param.width, param.height, param.fov)
+    default_resources = h.loadDefaultResources()
+
+    # Ensure the target directory exists.
+    dst_path = os.path.join(param.dst_path, 'background')
+    os.makedirs(dst_path, exist_ok=True)
+
+    # Add a default light. Then place it far away to mimic a sun.
+    lname = h.addLight()
+    pos = 2000 * np.array([0, 1, 1], np.float32)
+    tm = np.eye(4)
+    tm[2, :3] = pos / np.linalg.norm(pos)
+    tm[3, :3] = pos
+    h.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
+    del lname, pos, tm
+
+    # Add the platform.
+    platform = h.addNode(default_resources['base'])
+
+    # Render the empty scenes from several random angles/positions.
+    for i in range(param.num_images):
+        pos = 50 * np.random.uniform(-1, 1, 3)
+        euler = 180 * np.random.uniform(-1, 1, 3)
+        scale = 1 * np.random.uniform(0, 1, 3)
+        h.setNodeTransPes(platform, pos.tolist(), euler.tolist(), scale.tolist())
+        del pos, euler, scale
+
+        # Compute random right/up/position vector for camera.
+        u, _, _ = np.linalg.svd(np.random.uniform(-1, 1, size=(3, 3)))
+        pos = 100 * np.random.uniform(-1, 1, 3)
+        cmat = camVectorsToCamMatrix(right=u[0], up=u[1], pos=pos)
+        assert cmat is not None
+        del u
+
+        # Render the scene and save the image.
+        img = h.renderScene(cmat, param.width, param.height, skybox=True)
+        img = PIL.Image.fromarray(np.flipud(img))
+        fname = os.path.join(dst_path, f'{i:04d}.jpg')
+        img.save(fname, 'jpeg', quality=param.jpg_quality)
+    print(f'Saved background images to <{dst_path}>')
+
+
+def renderFlightPath(param):
+    """Populate the scene with cubes and render a virtual flight through it.
+
+    This will also produce a meta.pickle file in the destination folder
+    (specified on the command line). This file contains meta information about
+    the scene, most notable the location and label of each cube as seen on the
+    respective frame.
+
+    Args:
+        param (namespace): command line parameters returned by argparse
+    """
+    # Ensure the target directory exists.
+    dst_path = os.path.join(param.dst_path, 'flightpath')
+    os.makedirs(dst_path, exist_ok=True)
+
+    h = ds2sim.horde.Engine(param.width, param.height, param.fov)
+    default_resources = h.loadDefaultResources()
+
+    # Add a default light. Then place it far away to mimic a sun.
+    lname = h.addLight()
+    pos = 2000 * np.array([0, 1, 1], np.float32)
+    tm = np.eye(4)
+    tm[2, :3] = pos / np.linalg.norm(pos)
+    tm[3, :3] = pos
+    h.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
+    del lname, pos, tm
+
+    # Add the platform.
+    node = h.addNode(default_resources['base'])
+    h.setNodeTransPes(node, [0, -35, 0], [0, 0, 0], [1, .2, 1])
+    del node
+
+    # Initialise the random generator to ensure reproducible results.
+    np.random.seed(param.seed)
+
+    # Draw the number of each cube at random.
+    cube_num = np.random.choice(np.arange(10), param.num_cubes)
+
+    # Create random positions and orientations for each cube.
+    cube_pos = 50 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
+    cube_rot = 180 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
+
+    # Each cube has the same size in the scene.
+    scale = 2 * np.ones(3)
+
+    # Create a flight path, that is, create the camera- position and vectors.
+    # To ensure a "smooth" path that also connects the end to the beginning, we
+    # will use trigonometric functions only.
+    cam_mat = []
+    for phi in np.linspace(0, 2 * np.pi, param.num_frames):
+        pos = (30 * np.cos(phi), 20 * np.sin(phi), 30 * np.sin(phi))
+        right = np.array([np.cos(3 * phi), 0, np.sin(3 * phi)])
+        cmat = camVectorsToCamMatrix(right=right, up=[0, 1, 0], pos=pos)
+        cam_mat.append(cmat)
+        del phi, pos, right, cmat
+
+    # Add each cube to the scene and set its transform.
+    for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_num)):
+        node = h.addNode(default_resources[num])
+        h.setNodeTransPes(node, pos, rot, scale)
+
+    # Compile meta information for the scene and pickle it to a file.
+    meta = {
+        'seed': param.seed,
+        'fov': param.fov,
+        'width': param.width,
+        'height': param.height,
+        'num_frame': param.num_frames,
+        'num_cubes': param.num_cubes,
+        'cam_mat': cam_mat,
+        'cube_pos': cube_pos,
+        'cube_rot': cube_rot,
+        'cube_num': cube_num,
+        'projected': {},
+    }
+
+    # Move the camera through the scene and save each frame as a JPG file.
+    for idx, cmat in enumerate(cam_mat):
+        fname = f'{idx:04d}.jpg'
+        img = h.renderScene(cmat, param.width, param.height)
+        img = PIL.Image.fromarray(np.flipud(img))
+        img.save(os.path.join(dst_path, fname), 'jpeg', quality=param.jpg_quality)
+
+        # Save the screen coordinate of all visible cubes.
+        pos, labels, bb_hlen = projectCubePositions(param, cmat, cube_num, cube_pos)
+        meta['projected'][fname] = {'pos': pos, 'labels': labels, 'hlen': bb_hlen}
+
+    # Save the meta information.
+    fname = os.path.join(dst_path, 'meta.pickle')
+    pickle.dump(meta, open(fname, 'wb'))
+    print(f'Saved flight path images to <{dst_path}>')
+
+
+def main():
+    # Ensure the image sequence is repeatable.
+    np.random.seed(0)
+
+    param = parseCmdline()
+    if param.mode == 'flight':
+        renderFlightPath(param)
+    elif param.mode == 'cubes':
+        renderGroundTruthCubes(param)
+    elif param.mode == 'background':
+        renderGroundTruthBackground(param)
+    elif param:
+        assert False, f'Unknown mode <{param.mode}>'
+
+
+if __name__ == '__main__':
+    main()
