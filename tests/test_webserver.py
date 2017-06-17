@@ -110,31 +110,52 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
         assert ret['foo'] == cameras['foo']
 
     @mock.patch.object(ds2sim.webserver, 'compileCameraMatrix')
-    def test_getRenderedImage(self, m_ccm):
+    @mock.patch.object(ds2sim.webserver, 'rawToJpeg')
+    def test_getRenderedImage(self, m_rtjpeg, m_ccm):
         m_ccm.return_value = b'mock-cmat'
-        m_ri = self.m_renderer.renderScene
+        m_rtjpeg.return_value = b'encoded-image'
         width, height = 100, 200
 
         payload = {'camera': 'foo', 'width': width, 'height': height}
         request = {'data': json.dumps(payload)}
 
         # Request rendered image from non-existing camera.
+        m_rs = self.m_renderer.renderScene
         body = urllib.parse.urlencode(request)
         assert self.fetch('/get-render', method='POST', body=body).code == 400
-        assert not m_ri.called
+        assert not m_rs.called
 
         # Define a camera.
         cameras = {'foo': {'right': [0, 0, 1], 'up': [0, 0, 1], 'pos': [0, 0, 0]}}
         body = urllib.parse.urlencode({'data': json.dumps(cameras)})
         assert self.fetch('/set-camera', method='POST', body=body).code == 200
 
+        # Pretend that Horde returned a 2x2x3 image.
+        m_rs.return_value = np.ones((2, 2, 3), np.uint8)
+
         # Request rendered image from existing camera.
-        m_ri.return_value = b'foobar'
         body = urllib.parse.urlencode(request)
         ret = self.fetch('/get-render', method='POST', body=body)
         assert ret.code == 200
-        assert ret.body == b'foobar'
-        m_ri.assert_called_with(cmat=b'mock-cmat', width=width, height=height)
+        assert ret.body == b'encoded-image'
+        m_rs.assert_called_with(cmat=b'mock-cmat', width=width, height=height)
+        m_rtjpeg.assert_called_with(m_rs.return_value, quality=90)
+
+
+class TestUtilityFunctions:
+    @classmethod
+    def setup_class(cls):
+        pass
+
+    @classmethod
+    def teardown_class(cls):
+        pass
+
+    def setup_method(self, method):
+        pass
+
+    def teardown_method(self, method):
+        pass
 
     def test_compileCameraMatrix_valid(self):
         """Serialise a test matrix."""
@@ -187,3 +208,21 @@ class TestRestAPI(tornado.testing.AsyncHTTPTestCase):
 
         # Rotation matrix is not orthonormal.
         assert fun(right, [0, 2, 0], pos) is None
+
+    def test_rawToJpeg_valid(self):
+        """ Use a random NumPy matrix to check that all encoding options."""
+        img = np.array((16, 16, 3), np.uint8)
+
+        fun = ds2sim.webserver.rawToJpeg
+
+        img = np.ones((16, 16, 3), np.uint8)
+        ret = fun(img, quality=50)
+        assert isinstance(ret, bytes)
+
+        # Not uint8
+        img = np.array((16, 16, 3), np.uint16)
+        assert fun(img, quality=50) is None
+
+        # Degenerate input.
+        img = np.array((0, 16, 3), np.uint16)
+        assert fun(img, quality=50) is None

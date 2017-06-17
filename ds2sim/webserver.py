@@ -1,13 +1,15 @@
+import io
 import time
 import json
 import signal
 import tornado.auth
 import tornado.websocket
 import tornado.httpserver
-import numpy as np
 import ds2sim.ds2logger
 import ds2sim.rendering
 
+import numpy as np
+import PIL.Image as Image
 from tornado.log import enable_pretty_logging
 
 
@@ -43,6 +45,36 @@ def compileCameraMatrix(right, up, pos):
     ret[3, :3] = pos
     ret = ret.astype(np.float32)
     return ret.flatten('C').tobytes()
+
+
+def rawToJpeg(img_mat, quality: int):
+    """ Return JPEG encoded binary image data.
+
+    Return None if there is an error.
+
+    Args:
+        img_mat (NumPy uint8): a Numpy array.
+        quality (int): compression level [0-100]
+
+    Returns:
+        bytes: the binary image, or None if an error occurred.
+    """
+    # Convert the image to JPEG and return it.
+    try:
+        assert isinstance(img_mat, np.ndarray)
+        assert img_mat.dtype == np.uint8
+        assert np.prod(img_mat.shape) > 0
+        assert isinstance(quality, int)
+        img = Image.fromarray(img_mat).convert('RGB')
+        quality = int(np.clip(quality, 0, 100))
+    except (KeyError, AttributeError, AssertionError):
+        return None
+
+    # Save the Image as JPEG and return.
+    buf = io.BytesIO()
+    img.save(buf, 'jpeg', quality=quality)
+    buf.seek(0)
+    return buf.read()
 
 
 class BaseHttp(tornado.web.RequestHandler):
@@ -172,6 +204,7 @@ class RestRenderScene(BaseHttp):
             return
 
         img = render.renderScene(cmat=cmat, width=width, height=height)
+        img = rawToJpeg(img, quality=90)
         if img is None:
             self.send_error(400)
         else:
@@ -231,7 +264,7 @@ class Server:
         settings = {
             'debug': self.debug,
             'cameras': {},
-            'renderer': ds2sim.rendering.getEngine(True),
+            'renderer': ds2sim.horde.Engine(512, 512),
         }
 
         # Install the handlers and create the Tornado instance.
