@@ -58,7 +58,7 @@ Then put the following code into a file and run it. Note that almost the entire
 file is boilerplate for Qt.
 ```python
 import sys
-import ds2server.viewer
+import ds2sim.viewer
 import numpy as np
 
 import PyQt5.QtGui as QtGui
@@ -66,42 +66,39 @@ import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as QtWidgets
 
 
-# Ignore for now.
-class MyViewer(ds2server.viewer.ViewerWidget):
+# For convenience.
+QPen, QColor, QRectF = QtGui.QPen, QtGui.QColor, QtCore.QRectF
+DS2Text = ds2sim.viewer.DS2Text
+
+class MyClassifier(ds2sim.viewer.ClassifierCamera):
     def classifyImage(self, img):
         pass
 
-
-# Define a camera name and assign our custom widget to manage it.
-cameras = {'Cam1': MyViewer}
-
 # Qt boilerplate to start the application.
 app = QtWidgets.QApplication(sys.argv)
-widget = ds2server.viewer.MainWindow(cameras, host='127.0.0.1', port=9095)
+widget = MyClassifier('Camera', host='127.0.0.1', port=9095)
 widget.show()
 app.exec_()
 ```
 
-This should produce a Qt application that "flies" you through a pre-rendered
-scene.
+The only part here that is not boilerplate is `MyClassifier`, and even that
+does nothing right now.
 
-The only lines that are not boilerplate are the `MyViewer` widget (which does
-nothing right now), and the definition of a `camera` dictionary. That dictionary
-specifies which camera will be controlled by which widget. In this particular
-example, we just create a simple camera and use the default widget, which will
-merely display the scene.
+When you run this program you should see the scene. Click in it, and use the
+ESDF keys, as well as the mouse, to fly through the scene. 
 
 
 ## Plug Your ML Model Into The Simulation
-The real fun is, of course, to use ML to find and identify all the cubes. To do
-so, overload the `classifyImage` method in the previous demo like so:
+The real fun is, of course, to use ML to find and identify all the cubes while
+you fly around. To do so, overload the `classifyImage` method in the previous
+demo like so:
 
 ```python
 # For convenience.
 QPen, QColor, QRectF = QtGui.QPen, QtGui.QColor, QtCore.QRectF
 DS2Text = ds2server.viewer.DS2Text
 
-class MyViewer(ds2server.viewer.ViewerWidget):
+class MyClassifier(ds2sim.viewer.ClassifierCamera):
     def classifyImage(self, img):
         # `img` is always a <height, width, 3> NumPy image.
         assert img.dtype == np.uint8
@@ -110,28 +107,27 @@ class MyViewer(ds2server.viewer.ViewerWidget):
         # myAwesomeClassifier(img)
 
         # Define a red bounding box.
-        x, y, width, height = 0.4, 0.2, 0.4, 0.4
+        x, y, width, height = 0.3, 0.4, 0.3, 0.3
         bbox = [QPen(QColor(255, 0, 0)), QRectF(x, y, width, height)]
 
         # Define a green text label.
-        x, y = 0.2, 0.7
-        text = [QPen(QColor(0, 255, 0)), DS2Text(x, y, 'Found Something')]
+        x, y = 0.3, 0.4
+        text = [QPen(QColor(100, 200, 0)), DS2Text(x, y, 'Found Something')]
 
         # Install the overlays.
         self.setMLOverlays([bbox, text])
 ```
 
-The `classifyImage` method will be called for each frame, and always receives
-one RGB image as a NumPy array with type Uint8. Pass that image to your
-classifier any way you like.
+The `classifyImage` method will be called for each frame. It always receives
+one RGB image as a NumPy array. Pass that image to your classifier any way you
+like.
 
-Then, when you have found out what is where in the scene, you can add overlays
-via the `setMLOverlays` method to highlight it. The arguments to that method is
-a list of 2-tuples. The first element in each tuple must be a `QPen` instance,
-and it defines the colour and transparency. The second argument specifies what
-to draw. Currently, only `QRect` and `DS2Textures` elements are supported.
+Then, when you have found out what objects are where, you can add overlays to
+highlight them. Every overlay is a 2-tuples: a `QPen` to define the colour, and
+a primitive to draw. Currently, `QRect` and `DS2Textures` are the only
+supported primitives. Pass all overlays to `setMLOverlays` and it will draw.
 
-When you start the application again, you should see an output like this.
+This should produce an output like this.
 
 Single Frame | Spaceflight
 :-------------------------:|:-------------------------:
