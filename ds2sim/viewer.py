@@ -305,42 +305,22 @@ class ViewerWidget(QtWidgets.QWidget):
 
 
 class MainWindow(QtWidgets.QWidget):
-    """Arrange the camera widgets."""
+    """Example: use the Viewer widgets inside a larger Qt application."""
     def __init__(self, cameras: dict, host='127.0.0.1', port=9095):
         super().__init__(parent=None)
-        self.logit = ds2sim.logger.getLogger('Viewer')
+
+        # Setup window.
         self.setWindowTitle('DS2 Demo')
         self.move(100, 100)
 
-        # Put one ViewerWidget per camera into layout.
+        # Put the camera widgets into the layout.
         layout = QtWidgets.QHBoxLayout()
-        for cname, widget in cameras.items():
+        for cname, cam_widget in cameras.items():
             assert isinstance(cname, str)
-            viewer = widget(self, cname, host, port)
-            layout.addWidget(viewer)
+            layout.addWidget(cam_widget(self, cname, host, port))
         self.setLayout(layout)
-
-        # Start the timer.
-        self.drawTimer = self.startTimer(0)
-        self.last_ts = time.time()
-        self.init = True
 
     def keyPressEvent(self, event):
         """Abort if user presses 'q'"""
-        char = event.text()
-        char = char[0] if len(char) > 1 else char
-        if char == 'q':
+        if event.text() == 'q':
             self.close()
-
-    def timerEvent(self, event):
-        self.killTimer(event.timerId())
-
-        # Move the cursor into the middle of the widget, but not before the
-        # camera widget has actually drawn itself. The check with a minimum
-        # width of 400 is hacky, but suffices for now.
-        if self.init and self.geometry().width() > 400:
-            self.init = False
-            # Move cursor into the widget (improves usability).
-            self.cursor().setPos(self.geometry().center())
-        else:
-            self.drawTimer = self.startTimer(50)
