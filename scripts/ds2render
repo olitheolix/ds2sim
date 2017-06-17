@@ -9,12 +9,11 @@ training images ("cubes" and "background").
 
 import os
 import sys
-import ds2sim.horde
 import pickle
-import logging
 import argparse
 import textwrap
 import PIL.Image
+import ds2sim.horde
 
 import numpy as np
 
@@ -75,28 +74,6 @@ def parseCmdline():
     param.num_cubes = max(0, param.num_cubes)
     param.num_frames = max(0, param.num_images)
     return param
-
-
-def getLogger(name):
-    """Return a custom logger object for DS2 functionality."""
-    # Return the logger object if it has handler (means we have already
-    # configured it).
-    logit = logging.getLogger(name)
-
-    # Specify the logging format.
-    fmt = (
-        '%(asctime)s|%(levelname)s|%(pathname)s:%(lineno)d:%(funcName)s'
-        ' (%(process)d)|%(message)s'
-    )
-    formatter = logging.Formatter(fmt)
-
-    # Configure our own handler (will send the log messages to Relays) and
-    # attach it to the logger object.
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    logit.addHandler(handler)
-    logit.setLevel(logging.DEBUG)
-    return logit
 
 
 def camVectorsToCamMatrix(right, up, pos):
