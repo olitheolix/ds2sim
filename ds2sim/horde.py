@@ -175,6 +175,56 @@ class Engine(pyhorde.PyHorde3D):
         self.h3dUtDumpMessages()
         return ret
 
+    def _loadDemoScene(self, num_cubes, seed=0):
+        """Setup a demo scene.
+
+        This convenience function will populate the scene with an artificial
+        sun, a platform, and `num_cubes` randomly chosen cubes.
+
+        Args:
+            num_cubes (int): number of cubes to randomly place in the scene
+            seed (int): seed value to ensure repeatable scenes.
+
+        Returns:
+            None
+        """
+        # Load the default resource, like the platform, or the various cubes.
+        # This will return resource handles. We will still have to add them to
+        # the scene.
+        default_resources = self.loadDefaultResources()
+
+        # Add a default light. Then place it far away to mimic a sun.
+        lname = self.addLight()
+        pos = 2000 * np.array([0, 1, 1], np.float32)
+        tm = np.eye(4)
+        tm[2, :3] = pos / np.linalg.norm(pos)
+        tm[3, :3] = pos
+        self.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
+        del lname, pos, tm
+
+        # Add the platform.
+        node = self.addNode(default_resources['base'])
+        self.setNodeTransPes(node, [0, -35, 0], [0, 0, 0], [1, .2, 1])
+        del node
+
+        # Initialise the random generator to ensure reproducible results.
+        np.random.seed(seed)
+
+        # Draw the number of each cube at random.
+        cube_num = np.random.choice(np.arange(10), num_cubes)
+
+        # Create random positions and orientations for each cube.
+        cube_pos = 50 * np.random.uniform(-1, 1, size=(num_cubes, 3))
+        cube_rot = 180 * np.random.uniform(-1, 1, size=(num_cubes, 3))
+
+        # Each cube has the same size in the scene.
+        scale = 2 * np.ones(3)
+
+        # Add each cube to the scene and set its transform.
+        for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_num)):
+            node = self.addNode(default_resources[num])
+            self.setNodeTransPes(node, pos, rot, scale)
+
     def addNode(self, resource, parent=None):
         parent = parent or self.h3dRootNode
         return self.h3dAddNode(parent, resource)
