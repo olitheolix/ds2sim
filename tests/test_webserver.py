@@ -2,7 +2,6 @@ import json
 import urllib
 import ds2sim.camera
 import ds2sim.webserver
-import ds2sim.rendering
 import unittest.mock as mock
 import tornado.web
 import tornado.testing
