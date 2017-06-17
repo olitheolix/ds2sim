@@ -80,25 +80,20 @@ class ViewerWidget(QtWidgets.QWidget):
 
         # Labels to display the scene image.
         self.label_img = ClassifiedImageLabel()
-        self.label_fetch = QtWidgets.QLabel('Classify: 0 ms')
-        self.label_classify = QtWidgets.QLabel('Fetch: 0 ms')
+        self.label_name = QtWidgets.QLabel(camera)
 
         # Add the just created display elements into a layout.
         layout = QtWidgets.QVBoxLayout()
-        layout_bar = QtWidgets.QVBoxLayout()
-        layout_bar.addWidget(self.label_fetch)
-        layout_bar.addWidget(self.label_classify)
+        layout_bot = QtWidgets.QHBoxLayout()
+        layout.addWidget(self.label_name)
         layout.addWidget(self.label_img)
-        layout.addLayout(layout_bar)
+        layout.addLayout(layout_bot)
 
         # Ensure the labels do not grow vertically.
         sizePolicy = QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Maximum)
-        self.label_fetch.setSizePolicy(sizePolicy)
-        self.label_classify.setSizePolicy(sizePolicy)
+        self.label_name.setSizePolicy(sizePolicy)
 
-        # policy = self.label_fetch.sizePolicy()
-        # policy.setVerticalPolicy
         self.setLayout(layout)
         self.width, self.height = 512, 512
 
@@ -280,21 +275,15 @@ class ViewerWidget(QtWidgets.QWidget):
             self.drawTimer = self.startTimer(5000)
             return
 
-        # Fetch the next frame.
-        t0 = time.time()
+        # Fetch the next frame. If we could not get one (possibly because the
+        # server has not been start, wait 5s until retry).
         img = self.fetchNextFrame()
-        etime = int(1000 * (time.time() - t0))
-        self.label_fetch.setText(f'Fetch: {etime:,} ms')
-
         if img is None:
             self.drawTimer = self.startTimer(5000)
             return
 
-        # Pass it to the (overloaded) classifier method.
-        t0 = time.time()
+        # Pass it to the user-overloaded classifier method.
         ml_img = self.classifyImage(img)
-        etime = int(1000 * (time.time() - t0))
-        self.label_classify.setText(f'Classify: {etime:,} ms')
 
         # Display the image.
         self.displayScene(img if ml_img is None else ml_img)
