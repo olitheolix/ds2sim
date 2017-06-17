@@ -8,29 +8,29 @@ scenes like these.
 <img src="docs/img/example_scene.jpg" width="400">
 
 
-You can use the engine to create your own training data, but is probably easier
-to use the one from [DS2Data](https://github.com/olitheolix/ds2data). It has
-a representative set of the objects in the scene, as well as a pre-rendered
-flight path to test your model.
+You can use it to create your own training data, but it is easier
+to use the data set from the [DS2Data](https://github.com/olitheolix/ds2data)
+project. Not only does that project have a representative training set of the
+relevant objects, it also comes with a pre-rendered flight path to test your
+model.
 
-
-Once you have your model you can plug it into the Viewer application (see
-[View The Space Simulation](#View-The-Space-Simulation) section for details).
-Then fly through the scene and find out how well (and quickly) it identifies
-the objects while flying through the scene. You may also replace the manual
-controls with another AI to fly through the scene on its own.
+Once you have your model you can plug it into the viewer application (see
+[View The Space Simulation](#View-The-Space-Simulation) section for details),
+and fly through the scene while it identifies the objects. You may also replace
+the manual controls with another AI to make it fly autonomously.
 
 
 ## Installation
-First, this will only work an NVidia GPU, because the project uses
+First, this will only work with an NVidia GPU, because the project uses
 [headless rendering](https://devblogs.nvidia.com/parallelforall/egl-eye-opengl-visualization-without-x-server/).
-If you do not have one, you may still train and test ML models with the data
-set at [DS2Data](https://github.com/olitheolix/ds2data).
+If you do not have an NVidia card, you may still train and test ML models with
+the data from the [DS2Data](https://github.com/olitheolix/ds2data) set.
 
-Next, since this is a Cython wrapper for Horde3D, you will need Cython and
-Horde3D - who would have guessed. To compile and install Horde3D, activate the
-virtual environment of your choice, install Cython, and then clone/compile/install
+Next, since this is a Cython wrapper for Horde3D, you will need - you guessed
+it - Cython and Horde3D. To compile and install Horde3D, activate the virtual
+environment of your choice, install Cython, and then clone/compile/install
 Horde3D like so:
+
 ```bash
 git clone https://github.com/olitheolix/Horde3D
 mkdir -p Horde3D/build
@@ -40,7 +40,7 @@ cmake .. -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=`python -c 'import sy
 make install
 ```
 
-Afterwards, install *DS2Sim* with PIP:
+Afterwards, install *DS2Sim* via PIP:
 ```bash
 pip install ds2sim
 ```
@@ -49,13 +49,13 @@ pip install ds2sim
 This consists of two parts: a web server to supply the rendered images, and a
 Qt application to display them.
 
-Start the server and load the default scene:
+Start the web server and load the default scene:
 ```bash
 ds2server --default-scene
 ```
 
-Then put the following code into a file and run it. Note that almost the entire
-file is boilerplate for Qt.
+Then put the following code into a file. Note that almost the entire file is
+boilerplate for Qt.
 ```python
 import sys
 import ds2sim.viewer
@@ -119,15 +119,16 @@ class MyClassifier(ds2sim.viewer.ClassifierCamera):
 ```
 
 The `classifyImage` method will be called for each frame. It always receives
-one RGB image as a NumPy array. Pass that image to your classifier any way you
-like.
+one RGB image as a NumPy array. Pass that image to your classifier to identify
+the objects in the scene.
 
-Then, when you have found out what objects are where, you can add overlays to
-highlight them. Every overlay is a 2-tuples: a `QPen` to define the colour, and
+When you have found out which objects are where, you can add overlays to
+highlight them. Every overlay is a 2-tuple: a `QPen` to define the colour, and
 a primitive to draw. Currently, `QRect` and `DS2Textures` are the only
-supported primitives. Pass all overlays to `setMLOverlays` and it will draw.
+supported primitives. Pass all overlays to `setMLOverlays` and it will show up
+in the scene.
 
-This should produce an output like this.
+The example code from above will produce an output like this.
 
 Single Frame | Spaceflight
 :-------------------------:|:-------------------------:
