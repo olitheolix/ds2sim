@@ -1,4 +1,4 @@
-# DS2Server
+# DS2Sim
 
 A simple Space Sim to experiment with machine learning.
 
@@ -49,9 +49,9 @@ pip install ds2sim
 This consists of two parts: a web server to supply the rendered images, and a
 Qt application to display them.
 
-Start the server with:
+Start the server and load the default scene:
 ```bash
-ds2server
+ds2server --default-scene
 ```
 
 Then put the following code into a file and run it. Note that almost the entire
