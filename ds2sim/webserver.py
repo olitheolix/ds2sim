@@ -7,7 +7,7 @@ import tornado.websocket
 import tornado.httpserver
 import ds2sim.horde
 import ds2sim.camera
-import ds2sim.ds2logger
+import ds2sim.logger
 
 import numpy as np
 import PIL.Image as Image
@@ -47,7 +47,7 @@ def rawToJpeg(img_mat, quality: int):
 class BaseHttp(tornado.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.logit = ds2sim.ds2logger.getLogger('tornado')
+        self.logit = ds2sim.logger.getLogger('tornado')
 
     def write_error(self, status_code, **kwargs):
         if status_code in {404, 405}:
@@ -190,7 +190,7 @@ class Server:
         self._shutdown = False
 
         # Route Tornado's log messages through our Relays.
-        self.logit = ds2sim.ds2logger.getLogger('tornado')
+        self.logit = ds2sim.logger.getLogger('tornado')
         self.logit.info('Server initialised')
 
     def sighandler(self, signum, frame):

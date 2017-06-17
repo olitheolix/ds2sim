@@ -1,12 +1,12 @@
 import os
 import pyhorde
 import numpy as np
-import ds2sim.ds2logger
+import ds2sim.logger
 
 
 class Engine(pyhorde.PyHorde3D):
     def __init__(self, width, height, fov=45):
-        self.logit = ds2sim.ds2logger.getLogger('Horde3d')
+        self.logit = ds2sim.logger.getLogger('Horde3d')
         self.fov = fov
 
         # Initialise Horde.
