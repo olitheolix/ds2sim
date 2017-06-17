@@ -85,7 +85,7 @@ class FreeFlight:
         q_rot = self.prodQuatQuat(q_phi, q_theta)
         self.Q = self.prodQuatQuat(q_rot, self.Q)
 
-        # Create the latest camera vectors.
+        # Compute the new camera vectors.
         self.c_r = self.prodQuatVec(self.Q, np.array([1, 0, 0], np.float64))
         self.c_u = self.prodQuatVec(self.Q, np.array([0, 1, 0], np.float64))
         self.c_f = self.prodQuatVec(self.Q, np.array([0, 0, 1], np.float64))
