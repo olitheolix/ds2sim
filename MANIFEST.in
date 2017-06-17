@@ -3,7 +3,9 @@ include README.md
 include dataset/ds2.tar.gz
 
 recursive-include tests *
-recursive-include ds2server/dataset *
+recursive-include cython *
+exclude cython/pyhorde.cpp
+recursive-include ds2sim/resources *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 

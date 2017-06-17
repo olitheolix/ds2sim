@@ -1,73 +1,55 @@
 # DS2Server
 
-A simple Space Sim inspired sandbox to experiment with machine learning.
+A simple Space Sim to experiment with machine learning.
 
-*DS2Server* flies through a (pre-rendered) space simulation. The space itself
-is occupied with many objects, most notably of cubes with a number on it.
-
-<img src="docs/img/cube_samples.png">
-
-You may think of it as a 3D version of
-the [MNIST](http://yann.lecun.com/exdb/mnist/) data set.
-
-Your job is to build the machine learning model that can spot and identify
-those cubes in the scene, like this one.
+It wraps [Horde3D](http://www.horde3d.org/) with Cython and uses it to render
+scenes like these.
 
 <img src="docs/img/example_scene.jpg" width="400">
 
+
+You can use the engine to create your own training data, but is probably easier
+to use the one from [DS2Data](https://github.com/olitheolix/ds2data). It has
+a representative set of the objects in the scene, as well as a pre-rendered
+flight path to test your model.
+
+
 Once you have your model you can plug it into the Viewer application (see
-[View The Space Simulation](#View-The-Space-Simulation) section for details),
-you can find out how well (and quickly) it identifies the objects while flying
-through the scene. 
+[View The Space Simulation](#View-The-Space-Simulation) section for details).
+Then fly through the scene and find out how well (and quickly) it identifies
+the objects while flying through the scene. You may also replace the manual
+controls with another AI to fly through the scene on its own.
 
 
 ## Installation
-I have only tested in Ubuntu 16.04, but since it has only Python based
-dependencies, it should work on other platforms as well (please let you me know
-if this is true) .
+First, this will only work an NVidia GPU, because the project uses
+[headless rendering](https://devblogs.nvidia.com/parallelforall/egl-eye-opengl-visualization-without-x-server/).
+If you do not have one, you may still train and test ML models with the data
+set at [DS2Data](https://github.com/olitheolix/ds2data).
 
+Next, since this is a Cython wrapper for Horde3D, you will need Cython and
+Horde3D - who would have guessed. To compile and install Horde3D, activate the
+virtual environment of your choice, install Cython, and then clone/compile/install
+Horde3D like so:
 ```bash
-pip install ds2server
+git clone https://github.com/olitheolix/Horde3D
+mkdir -p Horde3D/build
+cd Horde3D/build
+git checkout ds2
+cmake .. -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=`python -c 'import sys; print(sys.prefix)'`
+make install
 ```
 
-## Generate Training Data
-*DS2Server* ships with 100 training images for each of the ten cubes. Each
-one was rendered from a random angle.
-
+Afterwards, install *DS2Sim* with PIP:
 ```bash
-ds2generate
+pip install ds2sim
 ```
-This will create a new folder `./dataset` with JPG images.
-The source images (100 rendered images for each cube) are in `./dataset/plain`,
-whereas `./dataset/aligned` will contain images like this.
-
-<img src="docs/img/aligned_cubes.jpg" width="400">
-
-This image consists of 10x10 tiles. The cubes in each row all have the same
-number on them, but are oriented, placed, and scaled arbitrarily inside their
-respective tile. This layout is (hopefully) useful to build and test a spacial
-"cube" detector.
-
-
-## Data Augmentation
-
-One problem with that data set is how clean it is. For instance, they all have
-a perfectly black background, each image contains exactly one cube, which is
-always in the centre, and always the same distance away from the camera...
-
-As a quick fix, the `ds2generate` script will also have created a
-`./dataset/augmented` folder. As the name suggests, it contains a set of
-augmented images, and was created with the
-excellent [Augmentor](https://github.com/mdbloice/Augmentor) library. However,
-the augmentation pipeline is still very much work in progress, and your mileage
-with the augmented images may vary.
-
 
 ## View the Space Simulation
-This consists of two parts: a web server to server the scene images, and a Qt
-application to display them.
+This consists of two parts: a web server to supply the rendered images, and a
+Qt application to display them.
 
-First, start the server with:
+Start the server with:
 ```bash
 ds2server
 ```
@@ -154,34 +136,3 @@ When you start the application again, you should see an output like this.
 Single Frame | Spaceflight
 :-------------------------:|:-------------------------:
 <img src="docs/img/viewer_box.jpg" width="400">|<img src="docs/img/animated.gif" width="400">
-
-
-# What Next
-
-## Build and Train ML Models
-... obviously, since this is the whole point of this project. If you want to
-share your designs and ideas, please let me know.
-
-
-## Better Data Augmentation
-The current training data is very forgiving since each number has a distinct
-colour. Early experiments suggest that the models learn the colours, rather
-than the digits, since the performance drops sharply when I convert the images
-to black/white first.
-
-## Live Rendering
-All the images were created by
-the [PyHorde](https://github.com/olitheolix/pyhorde) sister project. It wraps
-the [Horde3D](http://www.horde3d.org/) engine and uses offline rendering to
-produce the images. Eventually I would like to use it as an optional backend
-for live rendering. In other words, instead of following a pre-rendered flight
-path, *you* control where to fly.
-
-This will also provide a REST API to add and manipulate objects from the
-client.
-
-
-# Feeback
-I would be happy to hear from anyone who uses it. Does it work for you? Is
-something missing? Which ML models have you built for it, and how well did they
-do?
