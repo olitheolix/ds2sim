@@ -52,7 +52,7 @@ def main():
 
     setup(
         name='ds2sim',
-        version='0.3.1',
+        version='0.4.0',
         description="Fun with Machine Learning and Space Ships",
         long_description=open('README.md').read() + '\n\n',
         author="Oliver Nagy",
