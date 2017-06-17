@@ -29,6 +29,8 @@ def parseCmdline():
     padd('--host', metavar='', type=str, default=default_host,
          help='Host (default: {})'.format(default_host))
     padd('--debug', action='store_true', help='Use Debug mode')
+    padd('--default-scene', action='store_true',
+         help='Load a default scene with objects in it')
 
     # Parse the actual arguments.
     param = parser.parse_args()
@@ -42,7 +44,8 @@ def parseCmdline():
 
 def main():
     param = parseCmdline()
-    server = ds2sim.webserver.Server(param.host, param.port, param.debug)
+    server = ds2sim.webserver.Server(
+        param.host, param.port, param.default_scene, param.debug)
     server.run()
 
 

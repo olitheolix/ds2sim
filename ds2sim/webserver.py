@@ -179,11 +179,14 @@ class RestRenderScene(BaseHttp):
 
 
 class Server:
-    def __init__(self, host='127.0.0.1', port=9095, debug=False):
+    def __init__(
+            self, host='127.0.0.1', port=9095,
+            default_scene=False, debug=False):
         super().__init__()
 
         self.host, self.port = host, port
         self.debug = debug
+        self.default_scene = default_scene
         self._shutdown = False
 
         # Route Tornado's log messages through our Relays.
@@ -227,11 +230,14 @@ class Server:
         handlers.append(('/set-camera', RestSetCamera))
         handlers.append(('/get-render', RestRenderScene))
 
-        # DS2 parameters that are relevant for the handlers as well.
+        # Instantiate Horde, and load the default scene, if requested.
+        horde = ds2sim.horde.Engine(512, 512)
+        if self.default_scene:
+            horde._loadDemoScene(num_cubes=200, seed=0)
         settings = {
             'debug': self.debug,
             'cameras': {},
-            'renderer': ds2sim.horde.Engine(512, 512),
+            'renderer': horde,
         }
 
         # Install the handlers and create the Tornado instance.
