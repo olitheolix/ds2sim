@@ -5,8 +5,8 @@ import signal
 import tornado.auth
 import tornado.websocket
 import tornado.httpserver
+import ds2sim.horde
 import ds2sim.camera
-import ds2sim.rendering
 import ds2sim.ds2logger
 
 import numpy as np
