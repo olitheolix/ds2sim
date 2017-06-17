@@ -11,6 +11,7 @@ import numpy as np
 import PyQt5.QtGui as QtGui
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as QtWidgets
+import ds2sim.camera
 import ds2sim.ds2logger
 from PIL import Image
 
@@ -198,7 +199,7 @@ class ViewerWidget(QtWidgets.QWidget):
         sensitivity = 0.003
         self.centerCursor()
         phi = sensitivity * (self.pos_before_grab.x() - xpos)
-        theta = sensitivity * (self.pos_before_grab.y() - ypos)
+        theta = -sensitivity * (self.pos_before_grab.y() - ypos)
         dz, dx = self.movement['forward'], self.movement['strafe']
         if self.movement['slow']:
             dz, dx = 0.02 * dz, 0.02 * dx
