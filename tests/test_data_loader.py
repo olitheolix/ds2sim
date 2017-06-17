@@ -1,5 +1,5 @@
 import pytest
-import ds2server.data_loader as loader
+import ds2sim.data_loader as loader
 import numpy as np
 
 

@@ -11,7 +11,7 @@ import numpy as np
 import PyQt5.QtGui as QtGui
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as QtWidgets
-import ds2server.ds2logger
+import ds2sim.ds2logger
 from PIL import Image
 
 
@@ -90,7 +90,7 @@ class Camera:
 class ClassifiedImageLabel(QtWidgets.QLabel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.logit = ds2server.ds2logger.getLogger('Viewer')
+        self.logit = ds2sim.ds2logger.getLogger('Viewer')
         self.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.setScaledContents(True)
         self.ml_overlays = []
@@ -134,7 +134,7 @@ class ViewerWidget(QtWidgets.QWidget):
     """Show one camera. This widget is usually embedded in a parent widget."""
     def __init__(self, parent, camera, host, port):
         super().__init__(parent)
-        self.logit = ds2server.ds2logger.getLogger('Viewer')
+        self.logit = ds2sim.ds2logger.getLogger('Viewer')
 
         assert isinstance(camera, str)
         self.camera_name = camera
@@ -369,7 +369,7 @@ class MainWindow(QtWidgets.QWidget):
     """Arrange the camera widgets."""
     def __init__(self, cameras: dict, host='127.0.0.1', port=9095):
         super().__init__(parent=None)
-        self.logit = ds2server.ds2logger.getLogger('Viewer')
+        self.logit = ds2sim.ds2logger.getLogger('Viewer')
         self.setWindowTitle('DS2 Demo')
         self.move(100, 100)
 

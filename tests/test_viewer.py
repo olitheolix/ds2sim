@@ -1,13 +1,13 @@
 import PyQt5.QtGui as QtGui
 import PyQt5.QtCore as QtCore
 import PyQt5.QtWidgets as QtWidgets
-import ds2server.viewer
+import ds2sim.viewer
 
 # Convenience.
 QPen = QtGui.QPen
 QColor = QtGui.QColor
 QRectF = QtCore.QRectF
-DS2Text = ds2server.viewer.DS2Text
+DS2Text = ds2sim.viewer.DS2Text
 
 
 class TestClassifiedImageLabel:
@@ -26,7 +26,7 @@ class TestClassifiedImageLabel:
         pass
 
     def test_setMLOverlays_bogus_data(self):
-        widget = ds2server.viewer.ClassifiedImageLabel()
+        widget = ds2sim.viewer.ClassifiedImageLabel()
 
         # Construct several invalid arguments, that is, any argument that
         # is not a list of the 9 elements [x, y, w, h, r, g, b, a, txt].
@@ -62,7 +62,7 @@ class TestClassifiedImageLabel:
         assert widget.ml_overlays[0][1] is valid[1]
 
     def test_setMLOverlays_valid(self):
-        widget = ds2server.viewer.ClassifiedImageLabel()
+        widget = ds2sim.viewer.ClassifiedImageLabel()
 
         # Nothing must happen when we supply an empty list.
         assert widget.ml_overlays == []

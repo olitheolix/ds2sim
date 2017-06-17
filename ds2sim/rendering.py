@@ -2,7 +2,7 @@ import os
 import glob
 
 try:
-    import ds2server.horde
+    import ds2sim.horde
     HORDE_INSTALLED = True
 except ImportError:
     HORDE_INSTALLED = False
@@ -12,7 +12,7 @@ def getEngine(disable_horde=False):
     if disable_horde or not HORDE_INSTALLED:
         return DummyHorde()
 
-    h = ds2server.horde.Engine(512, 512)
+    h = ds2sim.horde.Engine(512, 512)
     h.loadCubes()
     h.addLights()
     return h
