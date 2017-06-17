@@ -68,7 +68,7 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
                 print('Unknown', wtype)
 
 
-class ViewerWidget(QtWidgets.QWidget):
+class ClassifierCamera(QtWidgets.QWidget):
     """Show one camera. This widget is usually embedded in a parent widget."""
     def __init__(self, camera, host, port, parent=None):
         super().__init__(parent)
