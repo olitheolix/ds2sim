@@ -70,7 +70,7 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
 
 class ViewerWidget(QtWidgets.QWidget):
     """Show one camera. This widget is usually embedded in a parent widget."""
-    def __init__(self, parent, camera, host, port):
+    def __init__(self, camera, host, port, parent=None):
         super().__init__(parent)
         self.logit = ds2sim.logger.getLogger('Viewer')
 
@@ -125,7 +125,7 @@ class ViewerWidget(QtWidgets.QWidget):
         c.setShape(QtCore.Qt.BlankCursor)
         self.setCursor(c)
 
-    def cameraTranslateStartEvent(self, event):
+    def keyPressEvent(self, event):
         """ Set the movement flags associated with `key`."""
         # Toggle the slow flag.
         if event.modifiers() == QtCore.Qt.ShiftModifier:
@@ -160,7 +160,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.movement['forward'] = forward
         self.movement['strafe'] = strafe
 
-    def cameraTranslateStopEvent(self, event):
+    def keyReleaseEvent(self, event):
         """ Clear the movement flags associated with `key`."""
         key = event.text()
         if key in ['e', 'd']:
@@ -174,10 +174,22 @@ class ViewerWidget(QtWidgets.QWidget):
         self.mouse_grab = not self.mouse_grab
         c = self.cursor()
         if self.mouse_grab:
+            # Backup the mouse pointer position and widget with focus. We will
+            # need that when we release the mouse grab.
+            self.last_focus = QtWidgets.QApplication.focusWidget()
             self.pos_before_grab = c.pos()
+
+            # Grab the focus and make the pointer invisible.
+            self.setFocus()
             self.centerCursor()
             c.setShape(QtCore.Qt.BlankCursor)
         else:
+            # Restore the focus. If no widget had the focus, then let Qt decide
+            # who gets it.
+            if self.last_focus:
+                self.last_focus.setFocus()
+
+            # Restore the pointer- shape and position.
             c.setPos(self.pos_before_grab)
             c.setShape(QtCore.Qt.ArrowCursor)
         self.setCursor(c)
@@ -300,18 +312,12 @@ class MainWindow(QtWidgets.QWidget):
         self.setWindowTitle('DS2 Demo')
         self.move(100, 100)
 
-        # Points to widget that has mouse grab.
-        self.active_camera = None
-
         # Put one ViewerWidget per camera into layout.
-        self.viewers = []
         layout = QtWidgets.QHBoxLayout()
         for cname, widget in cameras.items():
             assert isinstance(cname, str)
             viewer = widget(self, cname, host, port)
-            viewer.installEventFilter(self)
             layout.addWidget(viewer)
-            self.viewers.append(viewer)
         self.setLayout(layout)
 
         # Start the timer.
@@ -320,40 +326,11 @@ class MainWindow(QtWidgets.QWidget):
         self.init = True
 
     def keyPressEvent(self, event):
-        """Propagate key presses to the active ViewerWidget"""
+        """Abort if user presses 'q'"""
         char = event.text()
         char = char[0] if len(char) > 1 else char
         if char == 'q':
             self.close()
-            return
-
-        if self.active_camera:
-            self.active_camera.cameraTranslateStartEvent(event)
-
-    def keyReleaseEvent(self, event):
-        """Propagate key releases to the active ViewerWidget"""
-        char = event.text()
-        char = char[0] if len(char) > 1 else char
-        if self.active_camera:
-            self.active_camera.cameraTranslateStopEvent(event)
-
-    def eventFilter(self, obj, event):
-        """Intercept mouse clicks to (de)activate the active ViewerWidget"""
-        if event.type() == QtCore.QEvent.MouseButtonPress:
-            # The click was most likely on QLabel object (the one with the
-            # image). From there we need to move up until we find the
-            # ViewerWidget instance that harbours it. If there is one, then the
-            # key{press,release}Event methods can deliver the camera movement
-            # events to that widget.
-            self.active_camera = None
-            while obj is not self:
-                if obj in self.viewers:
-                    self.active_camera = obj
-                    break
-                obj = obj.parent()
-
-        # Propagate the event down the chain.
-        return False
 
     def timerEvent(self, event):
         self.killTimer(event.timerId())
