@@ -36,6 +36,9 @@ def isHordeInstalled():
 
 
 def main():
+    if not isHordeInstalled():
+        sys.exit(1)
+
     pyhorde = Extension(
         name='pyhorde',
         sources=['cython/pyhorde.pyx', 'cython/glutils.cpp'],
