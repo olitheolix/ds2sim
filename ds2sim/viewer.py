@@ -70,17 +70,17 @@ class ClassifiedImageLabel(QtWidgets.QLabel):
 
 class ClassifierCamera(QtWidgets.QWidget):
     """Show one camera. This widget is usually embedded in a parent widget."""
-    def __init__(self, camera, host, port, parent=None):
+    def __init__(self, camera_name, host, port, parent=None):
         super().__init__(parent)
         self.logit = ds2sim.logger.getLogger('Viewer')
 
-        assert isinstance(camera, str)
-        self.camera_name = camera
+        assert isinstance(camera_name, str)
+        self.camera_name = camera_name
         self.host = f'http://{host}:{port}'
 
         # Labels to display the scene image.
         self.label_img = ClassifiedImageLabel()
-        self.label_name = QtWidgets.QLabel(camera)
+        self.label_name = QtWidgets.QLabel(camera_name)
 
         # Add the just created display elements into a layout.
         layout = QtWidgets.QVBoxLayout()
