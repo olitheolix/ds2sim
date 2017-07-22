@@ -77,6 +77,18 @@ def parseCmdline():
     return param
 
 
+def addSun(h):
+    # Add a light and place it far away. The parameters are such that it mimics
+    # the SkyBox sun, altough there is a limit to how realistic this is.
+    node = h.addLight()
+    pos = 2000 * np.array([0, 1, 1], np.float32)
+    tm = np.eye(4)
+    tm[2, :3] = pos / np.linalg.norm(pos)
+    tm[3, :3] = pos
+    h.setNodeTransMat(node, tm.flatten().astype(np.float32).tobytes())
+    return node
+
+
 def projectCubePositions(param, cmat, labels, cube_pos):
     """ Return BBoxes position and size in normalised coordinates.
 
@@ -164,14 +176,8 @@ def renderGroundTruthCubes(param):
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
 
-    # Add a default light. Then place it far away to mimic a sun.
-    lname = h.addLight()
-    pos = 2000 * np.array([0, 1, 1], np.float32)
-    tm = np.eye(4)
-    tm[2, :3] = pos / np.linalg.norm(pos)
-    tm[3, :3] = pos
-    h.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
-    del lname, pos, tm
+    # Add a light far away to mimic the sun.
+    addSun(h)
 
     # Make the platform invisible.
     dst_path = os.path.join(param.dst_path, 'cubes')
@@ -257,14 +263,8 @@ def renderGroundTruthBackground(param):
     dst_path = os.path.join(param.dst_path, 'background')
     os.makedirs(dst_path, exist_ok=True)
 
-    # Add a default light. Then place it far away to mimic a sun.
-    lname = h.addLight()
-    pos = 2000 * np.array([0, 1, 1], np.float32)
-    tm = np.eye(4)
-    tm[2, :3] = pos / np.linalg.norm(pos)
-    tm[3, :3] = pos
-    h.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
-    del lname, pos, tm
+    # Add a light far away to mimic the sun.
+    addSun(h)
 
     # Add the platform.
     platform = h.addNode(default_resources['base'])
@@ -310,14 +310,8 @@ def renderFlightPath(param):
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
 
-    # Add a default light. Then place it far away to mimic a sun.
-    lname = h.addLight()
-    pos = 2000 * np.array([0, 1, 1], np.float32)
-    tm = np.eye(4)
-    tm[2, :3] = pos / np.linalg.norm(pos)
-    tm[3, :3] = pos
-    h.setNodeTransMat(lname, tm.flatten().astype(np.float32).tobytes())
-    del lname, pos, tm
+    # Add a light far away to mimic the sun.
+    addSun(h)
 
     # Add the platform.
     node = h.addNode(default_resources['base'])
