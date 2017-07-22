@@ -374,6 +374,12 @@ def renderFlightPath(param):
 
     # Move the camera through the scene and save each frame as a JPG file.
     for frame, cmat in enumerate(cam_mat):
+        # Save the screen coordinate of all visible cubes.
+        _ = projectCubePositions(param, cmat, cube_num, cube_pos)
+        pos, labels, bb_hlen, pick_idx = _
+        # meta['projected'][fname] = {'pos': pos, 'labels': labels, 'hlen': bb_hlen}
+        del pos, labels, bb_hlen
+
         # Render the scene with the light on.
         light_node = addSun(h)
         img_light = h.renderScene(cmat, param.width, param.height, False)
@@ -391,8 +397,10 @@ def renderFlightPath(param):
         img_all = PIL.Image.fromarray(img_all)
 
         feature_img = np.zeros((len(nodes), *img_light.shape[:2]), np.uint8)
-        for cube_idx, state in enumerate(zip(nodes, cube_pos, cube_rot, cube_num)):
-            node, pos, rot, label = state
+        for cube_idx in pick_idx:
+            node = nodes[cube_idx]
+            pos = cube_pos[cube_idx]
+            rot = cube_rot[cube_idx]
 
             # Render the scene without the current cube.
             h.setNodeTransPes(node, pos, rot, [0] * 3)
@@ -424,10 +432,6 @@ def renderFlightPath(param):
             plt.subplot(1, 2, 1).imshow(img_light)
             plt.subplot(1, 2, 2).imshow(label_img, clim=[0, 9])
             del empty_idx, label_img
-
-        # Save the screen coordinate of all visible cubes.
-        pos, labels, bb_hlen = projectCubePositions(param, cmat, cube_num, cube_pos)
-        meta['projected'][fname] = {'pos': pos, 'labels': labels, 'hlen': bb_hlen}
 
     # Save the meta information.
     fname = os.path.join(dst_path, 'meta.pickle')
