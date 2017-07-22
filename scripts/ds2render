@@ -150,8 +150,10 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     x = x / (z * fov * aspect_ratio)
     y = y / (z * fov)
 
-    # Filter out the invisible cubes, ie the ones outside the camera frustrum.
-    bound = 1.05
+    # Remove the cubes outside the camera frustrum. We add some slack because
+    # the position only denote the centre, but even if the centre is outside
+    # the frustrum it may still be possible to guess the object and its BBox.
+    bound = 1.2
     cond_x = (-bound < x) & (x < bound)
     cond_y = (-bound < y) & (y < bound)
     idx = np.nonzero(cond_x & cond_y)
