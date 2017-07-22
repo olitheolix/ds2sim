@@ -9,14 +9,15 @@ training images ("cubes" and "background").
 
 import os
 import sys
-import ds2sim.horde
-import ds2sim.camera
 import pickle
 import argparse
 import textwrap
 import PIL.Image
+import ds2sim.horde
+import ds2sim.camera
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def parseCmdline():
@@ -56,6 +57,7 @@ def parseCmdline():
          help='Seed value to ensure reproducible scenes')
     padd('--fov', metavar='', type=int, default=45,
          help='Field of view of camera')
+    padd('--debug', action='store_true', help='Create debug plots (depends on mode)')
 
     # Parse the actual arguments.
     param = parser.parse_args()
@@ -310,9 +312,6 @@ def renderFlightPath(param):
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
 
-    # Add a light far away to mimic the sun.
-    addSun(h)
-
     # Add the platform.
     node = h.addNode(default_resources['base'])
     h.setNodeTransPes(node, [0, -35, 0], [0, 0, 0], [1, .2, 1])
@@ -343,9 +342,12 @@ def renderFlightPath(param):
         del phi, pos, right, cmat
 
     # Add each cube to the scene and set its transform.
+    nodes = []
     for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_num)):
         node = h.addNode(default_resources[num])
         h.setNodeTransPes(node, pos, rot, scale)
+        nodes.append(node)
+        del node
 
     # Compile meta information for the scene and pickle it to a file.
     meta = {
@@ -363,11 +365,57 @@ def renderFlightPath(param):
     }
 
     # Move the camera through the scene and save each frame as a JPG file.
-    for idx, cmat in enumerate(cam_mat):
-        fname = f'{idx:04d}.jpg'
-        img = h.renderScene(cmat, param.width, param.height)
-        img = PIL.Image.fromarray(np.flipud(img))
-        img.save(os.path.join(dst_path, fname), 'jpeg', quality=param.jpg_quality)
+    for frame, cmat in enumerate(cam_mat):
+        # Render the scene with the light on.
+        light_node = addSun(h)
+        img_light = h.renderScene(cmat, param.width, param.height, False)
+        img_light = np.flipud(img_light)
+        h.h3dRemoveNode(light_node)
+        fname = f'{frame:04d}.jpg'
+        tmp = PIL.Image.fromarray(img_light)
+        tmp.save(os.path.join(dst_path, fname), 'jpeg', quality=param.jpg_quality)
+
+        # Render the scene with all lights off. The objects will still be
+        # (somewhat) visible due to the ambient light, but there will be no
+        # shadows of any kind.
+        img_all = h.renderScene(cmat, param.width, param.height, False)
+        img_all = np.flipud(img_all)
+        img_all = PIL.Image.fromarray(img_all)
+
+        feature_img = np.zeros((len(nodes), *img_light.shape[:2]), np.uint8)
+        for cube_idx, state in enumerate(zip(nodes, cube_pos, cube_rot, cube_num)):
+            node, pos, rot, label = state
+
+            # Render the scene without the current cube.
+            h.setNodeTransPes(node, pos, rot, [0] * 3)
+            diff = h.renderScene(cmat, param.width, param.height, False)
+            diff = np.array(np.flipud(diff), np.float32)
+            h.setNodeTransPes(node, pos, rot, scale)
+
+            # Compare the images with- and without the cube to determine which
+            # pixels belong to it.
+            diff = np.max(np.abs(img_all - diff), axis=2)
+            diff_idx = np.nonzero(diff)
+
+            # Skip this cube if it has barely an influence on the image. This
+            # happens if the cube is away, covered mostly by another object, or
+            # it is barely inside the camera frustrum.
+            if len(diff_idx[0]) < 128:
+                continue
+
+            # Record the label at each locations.
+            feature_img[cube_idx][diff_idx] = 1
+
+        # Plot the image and label mask side by side (debug only).
+        if param.debug:
+            empty_idx = np.nonzero(np.max(feature_img, axis=0) == 0)
+            label_img = np.argmax(feature_img, axis=0)
+            label_img = 1 + cube_num[label_img]
+            label_img[empty_idx] = 0
+            plt.figure()
+            plt.subplot(1, 2, 1).imshow(img_light)
+            plt.subplot(1, 2, 2).imshow(label_img, clim=[0, 9])
+            del empty_idx, label_img
 
         # Save the screen coordinate of all visible cubes.
         pos, labels, bb_hlen = projectCubePositions(param, cmat, cube_num, cube_pos)
@@ -377,6 +425,9 @@ def renderFlightPath(param):
     fname = os.path.join(dst_path, 'meta.pickle')
     pickle.dump(meta, open(fname, 'wb'))
     print(f'Saved flight path images to <{dst_path}>')
+
+    if param.debug:
+        plt.show()
 
 
 def main():
