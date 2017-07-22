@@ -78,24 +78,58 @@ def parseCmdline():
 
 
 def projectCubePositions(param, cmat, labels, cube_pos):
+    """ Return BBoxes position and size in normalised coordinates.
+
+    The output will only BBox values for visible cubes, ie cube inside the
+    camera frustrum. Essentially, this function will compute the screen
+    position of all `cube_pos` in the exact same way as OpenGL does when
+    it renders the scene.
+
+    Inputs:
+        param: command line parameters
+        cmat: Array[16, float32]
+            Camera matrix
+        labels: Array[N]
+            Label for each of the N cubes, for instance a value in [0-9].
+        cube_pos: Array[N, 3]
+            The 3D position of the cube centres.
+
+    Returns:
+        pos: Array[N, 3]
+            BBox position. The first two dimension are in normalised screen
+            coordinates [0, 1]. The last one is depth and is the true z-value
+            of the cube. NOTE: this array will only contain visible cubes and
+            N may thus be smaller than the N for `cube_pos` input.
+        labels: Array[N]
+            The labels that correspond to each returned BBox.
+        bb_hlen: Array[:, 2]
+            The width and height of each BBox.
+    """
+    # Camera parameters.
     fov = param.fov / 2
     fov = np.tan(fov * np.pi / 180)
     aspect_ratio = param.width / param.height
 
+    # Convert flat camera matrix into 4x4 transform.
     cmat = np.fromstring(cmat, np.float32).reshape(4, 4)
     assert cmat.shape == (4, 4)
 
+    # Undo the camera transform of the cube centre positions.
     tmp = (cube_pos - cmat[3, :3]) @ cmat[:3, :3].T
     x, y, z = tmp[:, 0], tmp[:, 1], tmp[:, 2]
     z = -z
     del tmp, cmat
 
+    # Filter out all cubes that are in front of the camera.
     idx = np.nonzero(z > 0.1)
     x, y, z, labels = x[idx], y[idx], z[idx], labels[idx]
 
+    # Project the 3D centre positions onto the 2D camera plane. This will
+    # result in values in the interval [-1, 1].
     x = x / (z * fov * aspect_ratio)
     y = y / (z * fov)
 
+    # Filter out the invisible cubes, ie the ones outside the camera frustrum.
     bound = 1.05
     cond_x = (-bound < x) & (x < bound)
     cond_y = (-bound < y) & (y < bound)
@@ -103,10 +137,14 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     x, y, z, labels = x[idx], y[idx], z[idx], labels[idx]
     del bound, cond_x, cond_y, idx
 
+    # Map from [-1, 1] to [0, 1].
     x = (x + 1) / 2
     y = 1 - (y + 1) / 2
 
+    # Compile the three coordinates into a (N, 3) matrix.
     pos = np.vstack([x, y, z]).T
+
+    # The (square) BBox size is determined by its distance from the camera plane.
     bb_hlen = np.vstack([4 / (aspect_ratio * z), 4 / z]).T
     return pos, labels, bb_hlen
 
