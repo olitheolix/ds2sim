@@ -104,7 +104,8 @@ def projectCubePositions(param, cmat, labels, cube_pos):
         cmat: Array[16, float32]
             Camera matrix
         labels: Array[N]
-            Label for each of the N cubes, for instance a value in [0-9].
+            List of labels (eg strings or integers) for the corresponding entry
+            in the `cube_pos` array.
         cube_pos: Array[N, 3]
             The 3D position of the cube centres.
 
@@ -116,11 +117,14 @@ def projectCubePositions(param, cmat, labels, cube_pos):
             N may thus be smaller than the N for `cube_pos` input.
         labels: Array[N]
             The labels that correspond to each returned BBox.
-        bb_hlen: Array[N, 2]
-            The width and height of each BBox.
-        picked_idx: Array[N]
+        bb_hlen: Array[N, 4]
+            The upper left and lower right corner, ie (x0, y0, x1, y1).
+        picked_idx: List[N]
             Integer array that lists the cube indices that were picked.
     """
+    assert labels.ndim == 1
+    assert cube_pos.ndim == 2 and cube_pos.shape[1] == 3
+
     # Camera parameters.
     fov = param.fov / 2
     fov = np.tan(fov * np.pi / 180)
@@ -142,8 +146,9 @@ def projectCubePositions(param, cmat, labels, cube_pos):
 
     # Filter out all cubes that are in front of the camera.
     idx = np.nonzero(z > 0.1)
-    x, y, z, labels = x[idx], y[idx], z[idx], labels[idx]
+    x, y, z, bb_labels = x[idx], y[idx], z[idx], labels[idx]
     pick_idx = pick_idx[idx]
+    del labels
 
     # Project the 3D centre positions onto the 2D camera plane. This will
     # result in values in the interval [-1, 1].
@@ -153,11 +158,11 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     # Remove the cubes outside the camera frustrum. We add some slack because
     # the position only denote the centre, but even if the centre is outside
     # the frustrum it may still be possible to guess the object and its BBox.
-    bound = 1.2
+    bound = 1.1
     cond_x = (-bound < x) & (x < bound)
     cond_y = (-bound < y) & (y < bound)
     idx = np.nonzero(cond_x & cond_y)
-    x, y, z, labels = x[idx], y[idx], z[idx], labels[idx]
+    x, y, z, bb_labels = x[idx], y[idx], z[idx], bb_labels[idx]
     pick_idx = pick_idx[idx]
     del bound, cond_x, cond_y, idx
 
@@ -169,8 +174,14 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     pos = np.vstack([x, y, z]).T
 
     # The (square) BBox size is determined by its distance from the camera plane.
-    bb_hlen = np.vstack([4 / (aspect_ratio * z), 4 / z]).T
-    return pos, labels, bb_hlen, pick_idx
+    hlen_x = 4 / (aspect_ratio * z)
+    hlen_y = 4 / z
+    bb_rects = np.zeros((len(hlen_x), 4), np.float32)
+    bb_rects[:, 0] = param.width * (x - hlen_x)
+    bb_rects[:, 2] = param.width * (x + hlen_x)
+    bb_rects[:, 1] = param.height * (y - hlen_y)
+    bb_rects[:, 3] = param.height * (y + hlen_y)
+    return pos, bb_labels, bb_rects, pick_idx
 
 
 def renderGroundTruthCubes(param):
