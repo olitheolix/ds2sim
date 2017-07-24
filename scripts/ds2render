@@ -452,21 +452,14 @@ def renderFlightPath(param):
         sub_nodes = [nodes[_] for _ in pick_idx]
         sub_labels = cube_labels[pick_idx]
 
+        pixel_labels = renderPixelLabels(param, h, cmat, sub_nodes, sub_labels)
+        obj_pixels = renderObjectPixels(param, h, cmat, sub_nodes)
+
         # Render the scene with the light on.
         light_node = addSun(h)
         img_light = h.renderScene(cmat, param.width, param.height, False)
         img_light = np.flipud(img_light)
         h.h3dRemoveNode(light_node)
-
-        pixel_labels = renderPixelLabels(param, h, cmat, sub_nodes, sub_labels)
-        obj_pixels = renderObjectPixels(param, h, cmat, sub_nodes)
-
-        # Plot the image and label mask (debug only).
-        if param.debug:
-            plt.figure()
-            plt.subplot(1, 3, 1).imshow(img_light)
-            plt.subplot(1, 3, 2).imshow(pixel_labels, clim=[0, len(int2name)])
-            plt.subplot(1, 3, 3).imshow(obj_pixels[0], clim=[0, 1])
 
         # Save the meta information.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
@@ -485,6 +478,13 @@ def renderFlightPath(param):
             'pixel-labels': pixel_labels.tolist(),
         }
         bz2.open(fname_meta, 'wb').write(json.dumps(meta, indent=2).encode('utf8'))
+
+        # Plot the image and label mask (debug only).
+        if param.debug:
+            plt.figure()
+            plt.subplot(1, 3, 1).imshow(img_light)
+            plt.subplot(1, 3, 2).imshow(pixel_labels, clim=[0, len(int2name)])
+            plt.subplot(1, 3, 3).imshow(obj_pixels[0], clim=[0, 1])
 
     print(f'Saved flight path images to <{dst_path}>')
 
