@@ -320,6 +320,38 @@ def renderGroundTruthBackground(param):
     print(f'Saved background images to <{dst_path}>')
 
 
+def renderPixelLabels(param, h, cmat, scale, nodes, labels, nodepos, noderot):
+    # Render the scene with all lights off. The objects will still be
+    # (somewhat) visible due to the ambient light, but there will be no
+    # shadows of any kind.
+    img_all = h.renderScene(cmat, param.width, param.height, False)
+    img_all = np.flipud(img_all)
+    img_all = PIL.Image.fromarray(img_all)
+
+    pixel_labels = np.zeros((param.height, param.width), np.uint16)
+    for node, label, pos, rot in zip(nodes, labels, nodepos, noderot):
+        # Render the scene without the current cube.
+        h.setNodeTransPes(node, pos, rot, [0] * 3)
+        diff = h.renderScene(cmat, param.width, param.height, False)
+        diff = np.array(np.flipud(diff), np.float32)
+        h.setNodeTransPes(node, pos, rot, scale)
+
+        # Compare the images with- and without the cube to determine which
+        # pixels belong to it.
+        diff = np.max(np.abs(img_all - diff), axis=2)
+        diff_idx = np.nonzero(diff)
+
+        # Skip this cube if it has barely an influence on the image. This
+        # happens if the cube is away, covered mostly by another object, or
+        # it is barely inside the camera frustrum.
+        if len(diff_idx[0]) < 128:
+            continue
+
+        # Set the pixel labels.
+        pixel_labels[diff_idx] = label
+    return pixel_labels
+
+
 def renderFlightPath(param):
     """Populate the scene with cubes and render a virtual flight through it.
 
@@ -389,6 +421,12 @@ def renderFlightPath(param):
         # Save the screen coordinate of all visible cubes.
         _ = projectCubePositions(param, cmat, cube_labels, cube_pos)
         pos3d, bb_labels, bb_rects, pick_idx = _
+        working_set = {
+            'nodes': [nodes[_] for _ in pick_idx],
+            'labels': cube_labels[pick_idx],
+            'nodepos': cube_pos[pick_idx],
+            'noderot': cube_rot[pick_idx],
+        }
 
         # Render the scene with the light on.
         light_node = addSun(h)
@@ -396,38 +434,7 @@ def renderFlightPath(param):
         img_light = np.flipud(img_light)
         h.h3dRemoveNode(light_node)
 
-        # Render the scene with all lights off. The objects will still be
-        # (somewhat) visible due to the ambient light, but there will be no
-        # shadows of any kind.
-        img_all = h.renderScene(cmat, param.width, param.height, False)
-        img_all = np.flipud(img_all)
-        img_all = PIL.Image.fromarray(img_all)
-
-        pixel_labels = np.zeros(img_light.shape[:2], np.uint16)
-        for obj_idx in pick_idx:
-            node = nodes[obj_idx]
-            pos = cube_pos[obj_idx]
-            rot = cube_rot[obj_idx]
-
-            # Render the scene without the current cube.
-            h.setNodeTransPes(node, pos, rot, [0] * 3)
-            diff = h.renderScene(cmat, param.width, param.height, False)
-            diff = np.array(np.flipud(diff), np.float32)
-            h.setNodeTransPes(node, pos, rot, scale)
-
-            # Compare the images with- and without the cube to determine which
-            # pixels belong to it.
-            diff = np.max(np.abs(img_all - diff), axis=2)
-            diff_idx = np.nonzero(diff)
-
-            # Skip this cube if it has barely an influence on the image. This
-            # happens if the cube is away, covered mostly by another object, or
-            # it is barely inside the camera frustrum.
-            if len(diff_idx[0]) < 128:
-                continue
-
-            # Set the pixel labels.
-            pixel_labels[diff_idx] = cube_labels[obj_idx]
+        pixel_labels = renderPixelLabels(param, h, cmat, scale, **working_set)
 
         # Plot the image and label mask (debug only).
         if param.debug:
