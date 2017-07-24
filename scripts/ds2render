@@ -171,7 +171,7 @@ def renderGroundTruthCubes(param):
 
             # Render the scene to an image.
             img = h.renderScene(cmat, param.width, param.height, skybox=False)
-            img = PIL.Image.fromarray(np.flipud(img))
+            img = PIL.Image.fromarray(img)
             fname = os.path.join(dst_path, f'{i:04d}.jpg')
             img.save(fname, 'jpeg', quality=param.jpg_quality)
 
@@ -221,7 +221,7 @@ def renderGroundTruthBackground(param):
 
         # Render the scene and save the image.
         img = h.renderScene(cmat, param.width, param.height, skybox=True)
-        img = PIL.Image.fromarray(np.flipud(img))
+        img = PIL.Image.fromarray(img)
         fname = os.path.join(dst_path, f'{i:04d}.jpg')
         img.save(fname, 'jpeg', quality=param.jpg_quality)
     print(f'Saved background images to <{dst_path}>')
@@ -232,7 +232,6 @@ def renderPixelLabels(param, h, cmat, nodes):
     # (somewhat) visible due to the ambient light, but there will be no
     # shadows of any kind.
     img_all = h.renderScene(cmat, param.width, param.height, False)
-    img_all = np.flipud(img_all)
     img_all = PIL.Image.fromarray(img_all)
 
     objID_at_pixel = np.zeros((param.height, param.width), np.uint16)
@@ -245,7 +244,6 @@ def renderPixelLabels(param, h, cmat, nodes):
 
         # Compare the images with- and without the cube to determine which
         # pixels belong to it.
-        diff = np.array(np.flipud(diff), np.float32)
         diff = np.max(np.abs(img_all - diff), axis=2)
         diff_idx = np.nonzero(diff)
 
@@ -274,7 +272,6 @@ def renderObjectPixels(param, h, cmat, nodes):
         h.setNodeTransPes(node, t[:3], t[3:6], [0] * 3)
 
         # Mark which pixels are occupied by the current object.
-        diff = np.array(np.flipud(diff), np.float32)
         diff_idx = np.nonzero(np.max(diff, axis=2))
 
         tmp = np.zeros((param.height, param.width), np.uint8)
@@ -388,7 +385,6 @@ def renderFlightPath(param):
         # Render the scene with the light on.
         light_node = addSun(h)
         img_light = h.renderScene(cmat, param.width, param.height, True)
-        img_light = np.flipud(img_light)
         h.h3dRemoveNode(light_node)
 
         # Save the meta information.
