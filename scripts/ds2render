@@ -117,7 +117,7 @@ def projectCubePositions(param, cmat, labels, cube_pos):
             N may thus be smaller than the N for `cube_pos` input.
         labels: Array[N]
             The labels that correspond to each returned BBox.
-        bb_hlen: Array[N, 4]
+        bb_rects: Integer Array[N, 4]
             The upper left and lower right corner, ie (x0, y0, x1, y1).
         picked_idx: List[N]
             Integer array that lists the cube indices that were picked.
@@ -181,6 +181,10 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     bb_rects[:, 2] = param.width * (x + hlen_x)
     bb_rects[:, 1] = param.height * (y - hlen_y)
     bb_rects[:, 3] = param.height * (y + hlen_y)
+
+    # Convert the BBox corners to integers. NOTE: the BBox corners may be
+    # outside the image because parts of the object may be outside as well.
+    bb_rects = bb_rects.astype(np.int32)
     return pos, bb_labels, bb_rects, pick_idx
 
 
