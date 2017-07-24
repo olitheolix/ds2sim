@@ -14,11 +14,15 @@ import json
 import argparse
 import textwrap
 import PIL.Image
+import collections
 import ds2sim.horde
 import ds2sim.camera
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+
+Node = collections.namedtuple('Node', 'handle label')
 
 
 def parseCmdline():
@@ -223,7 +227,7 @@ def renderGroundTruthBackground(param):
     print(f'Saved background images to <{dst_path}>')
 
 
-def renderPixelLabels(param, h, cmat, nodes, labels):
+def renderPixelLabels(param, h, cmat, nodes):
     # Render the scene with all lights off. The objects will still be
     # (somewhat) visible due to the ambient light, but there will be no
     # shadows of any kind.
@@ -232,7 +236,7 @@ def renderPixelLabels(param, h, cmat, nodes, labels):
     img_all = PIL.Image.fromarray(img_all)
 
     pixel_labels = np.zeros((param.height, param.width), np.uint16)
-    for node, label in zip(nodes, labels):
+    for objID, (node, label) in nodes.items():
         # Render the scene without the current cube.
         trans = h.h3dGetNodeTransform(node)
         h.setNodeTransPes(node, trans[:3], trans[3:6], [0] * 3)
@@ -258,14 +262,16 @@ def renderPixelLabels(param, h, cmat, nodes, labels):
 
 def renderObjectPixels(param, h, cmat, nodes):
     # Backup the state of all nodes and set their scale to zero.
-    trans = []
-    for node in nodes:
+    trans = {}
+    for objID, (node, _) in nodes.items():
         t = h.h3dGetNodeTransform(node)
-        trans.append(t)
+        trans[objID] = t
         h.setNodeTransPes(node, t[:3], t[3:6], [0] * 3)
+        del objID, node, t
 
-    obj_pixels = np.zeros((len(nodes), param.height, param.width), np.uint8)
-    for i, (node, t) in enumerate(zip(nodes, trans)):
+    obj_pixels = {}
+    for objID, (node, _) in nodes.items():
+        t = trans[objID]
         # Render the scene with only the current cube in it.
         h.setNodeTransPes(node, t[:3], t[3:6], t[6:])
         diff = h.renderScene(cmat, param.width, param.height, False)
@@ -274,10 +280,14 @@ def renderObjectPixels(param, h, cmat, nodes):
         # Mark which pixels are occupied by the current object.
         diff = np.array(np.flipud(diff), np.float32)
         diff_idx = np.nonzero(np.max(diff, axis=2))
-        obj_pixels[i][diff_idx] = 1
+
+        tmp = np.zeros((param.height, param.width), np.uint8)
+        tmp[diff_idx] = 1
+        obj_pixels[objID] = tmp.tolist()
 
     # Restore the scale of all objects to make them visible.
-    for node, t in zip(nodes, trans):
+    for objID, (node, _) in nodes.items():
+        t = trans[objID]
         h.setNodeTransPes(node, t[:3], t[3:6], t[6:])
 
     return obj_pixels
@@ -302,7 +312,6 @@ def renderFlightPath(param):
     default_resources = h.loadDefaultResources()
 
     nodes = []
-    labels = []
     int2name = {0: 'background'}
 
     # Add the platform.
@@ -310,8 +319,7 @@ def renderFlightPath(param):
     int2name[platform_label] = 'platform'
     node = h.addNode(default_resources['base'])
     h.setNodeTransPes(node, [0, -35, 0], [0, 0, 0], [1, .2, 1])
-    nodes.append(node)
-    labels.append(platform_label)
+    nodes.append(Node(node, platform_label))
     del node, platform_label
 
     # Define a map that associates integers with human readable class names.
@@ -350,11 +358,10 @@ def renderFlightPath(param):
     for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_nums)):
         node = h.addNode(default_resources[num])
         h.setNodeTransPes(node, pos, rot, scale)
-        nodes.append(node)
-        labels.append(num + cube0_label)
+        nodes.append(Node(node, num + cube0_label))
         del idx, pos, rot, num, node
     del cube_pos, cube_rot, cube_nums
-    labels = np.array(labels, np.uint32)
+    nodes = {i: node for i, node in enumerate(nodes)}
 
     node_pos = [h.h3dGetNodeTransform(_)[:3] for _ in nodes]
     node_pos = np.array(node_pos)
@@ -363,13 +370,11 @@ def renderFlightPath(param):
     # Move the camera through the scene and save each frame as a JPG file.
     for frame, cmat in enumerate(cam_mat):
         obj_pixels = renderObjectPixels(param, h, cmat, nodes)
-        tmp = np.max(obj_pixels, axis=(1, 2))
-        pick_idx = np.nonzero(tmp)[0]
+        objIDs = [k for k, v in obj_pixels.items() if np.max(v) > 0]
 
-        obj_pixels = obj_pixels[pick_idx]
-        frame_nodes = [nodes[_] for _ in pick_idx]
-        frame_labels = labels[pick_idx]
-        print('Visible: ', len(pick_idx))
+        obj_pixels = {objID: obj_pixels[objID] for objID in objIDs}
+        frame_nodes = {objID: nodes[objID] for objID in objIDs}
+        print('Visible: ', len(objIDs))
 
         # Render the scene with the light on.
         light_node = addSun(h)
@@ -377,18 +382,17 @@ def renderFlightPath(param):
         img_light = np.flipud(img_light)
         h.h3dRemoveNode(light_node)
 
-        pixel_labels = renderPixelLabels(param, h, cmat, frame_nodes, frame_labels)
+        pixel_labels = renderPixelLabels(param, h, cmat, frame_nodes)
 
-        bb_rects = np.zeros([len(obj_pixels), 4], np.int32)
-        for i, opix in enumerate(obj_pixels):
+        bb_rects = {}
+        for objID, opix in obj_pixels.items():
             idx = np.nonzero(opix)
-            if len(idx[0]) == 0:
-                continue
+            assert len(idx[0]) > 0
             x0 = np.min(idx[1])
             x1 = np.max(idx[1])
             y0 = np.min(idx[0])
             y1 = np.max(idx[0])
-            bb_rects[i] = (x0, y0, x1, y1)
+            bb_rects[objID] = {'label': nodes[objID].label, 'bbox': (x0, y0, x1, y1)}
 
         # Save the meta information.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
@@ -399,12 +403,11 @@ def renderFlightPath(param):
             'seed': param.seed,
             'frame_no': frame,
             'int2name': int2name,
-            'num_frame': param.num_frames,
-            'num_cubes': param.num_cubes,
-            'bb_labels': frame_labels.tolist(),
-            'bb_rects': bb_rects.tolist(),
-            'obj-pixels': obj_pixels.tolist(),
-            'pixel-labels': pixel_labels.tolist(),
+            # 'num_frame': param.num_frames,
+            # 'num_cubes': param.num_cubes,
+            # 'bb_rects': bb_rects,
+            # 'obj-pixels': obj_pixels,
+            # 'pixel-labels': pixel_labels,
         }
         meta_raw = json.dumps(meta, indent=2).encode('utf8')
         print(f'{len(meta_raw):,} Bytes')
@@ -412,14 +415,17 @@ def renderFlightPath(param):
 
         # Plot the image and label mask (debug only).
         if param.debug:
+            # pixel_labels = np.array(pixel_labels, np.uint8)
+            # obj_pixels = np.array(obj_pixels, np.uint8)
             plt.figure()
             plt.subplot(1, 2, 1).imshow(img_light)
             plt.subplot(1, 2, 2).imshow(pixel_labels, clim=[0, len(int2name)])
 
             plt.figure()
-            for i, opix in enumerate(obj_pixels[:25]):
+            keys = list(obj_pixels.keys())[:25]
+            for i, key in enumerate(keys):
                 plt.subplot(5, 5, i + 1)
-                plt.imshow(obj_pixels[i], clim=[0, 1])
+                plt.imshow(obj_pixels[key], clim=[0, 1])
 
     print(f'Saved flight path images to <{dst_path}>')
 
