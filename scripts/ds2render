@@ -116,8 +116,6 @@ def projectCubePositions(param, cmat, labels, cube_pos):
             coordinates [0, 1]. The last one is depth and is the true z-value
             of the cube. NOTE: this array will only contain visible cubes and
             N may thus be smaller than the N for `cube_pos` input.
-        labels: Array[N]
-            The labels that correspond to each returned BBox.
         bb_rects: Integer Array[N, 4]
             The upper left and lower right corner, ie (x0, y0, x1, y1).
         picked_idx: List[N]
@@ -147,7 +145,7 @@ def projectCubePositions(param, cmat, labels, cube_pos):
 
     # Filter out all cubes that are in front of the camera.
     idx = np.nonzero(z > 0.001)
-    x, y, z, bb_labels = x[idx], y[idx], z[idx], labels[idx]
+    x, y, z = x[idx], y[idx], z[idx]
     pick_idx = pick_idx[idx]
     del labels
 
@@ -163,7 +161,7 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     cond_x = (-bound < x) & (x < bound)
     cond_y = (-bound < y) & (y < bound)
     idx = np.nonzero(cond_x & cond_y)
-    x, y, z, bb_labels = x[idx], y[idx], z[idx], bb_labels[idx]
+    x, y, z = x[idx], y[idx], z[idx]
     pick_idx = pick_idx[idx]
     del bound, cond_x, cond_y, idx
 
@@ -186,7 +184,7 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     # Convert the BBox corners to integers. NOTE: the BBox corners may be
     # outside the image because parts of the object may be outside as well.
     bb_rects = bb_rects.astype(np.int32)
-    return pos, bb_labels, bb_rects, pick_idx
+    return pos, bb_rects, pick_idx
 
 
 def renderGroundTruthCubes(param):
@@ -420,7 +418,7 @@ def renderFlightPath(param):
     for frame, cmat in enumerate(cam_mat):
         # Save the screen coordinate of all visible cubes.
         _ = projectCubePositions(param, cmat, cube_labels, cube_pos)
-        pos3d, bb_labels, bb_rects, pick_idx = _
+        pos3d, bb_rects, pick_idx = _
         working_set = {
             'nodes': [nodes[_] for _ in pick_idx],
             'labels': cube_labels[pick_idx],
@@ -454,7 +452,7 @@ def renderFlightPath(param):
             'num_frame': param.num_frames,
             'num_cubes': param.num_cubes,
             'pos3d': np.round(pos3d, 2).tolist(),
-            'bb_labels': bb_labels.tolist(),
+            'bb_labels': working_set['labels'].tolist(),
             'bb_rects': bb_rects.tolist(),
             'pixel-labels': pixel_labels.tolist(),
         }
