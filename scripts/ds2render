@@ -235,8 +235,7 @@ def renderPixelLabels(param, h, cmat, nodes):
     img_all = np.flipud(img_all)
     img_all = PIL.Image.fromarray(img_all)
 
-    pixel_labels = np.zeros((param.height, param.width), np.uint16)
-    pixel_objID = np.zeros_like(pixel_labels)
+    objID_at_pixel = np.zeros((param.height, param.width), np.uint16)
     for objID, (node, label) in nodes.items():
         # Render the scene without the current cube.
         trans = h.h3dGetNodeTransform(node)
@@ -250,20 +249,11 @@ def renderPixelLabels(param, h, cmat, nodes):
         diff = np.max(np.abs(img_all - diff), axis=2)
         diff_idx = np.nonzero(diff)
 
-        # Skip this cube if it has barely an influence on the image. This
-        # happens if the cube is away, covered mostly by another object, or
-        # it is barely inside the camera frustrum.
-        if len(diff_idx[0]) < 128:
-            continue
-
         # Set the pixel labels.
         assert 0 <= objID < 2 ** 16
-        pixel_objID[diff_idx] = objID
-        pixel_labels[diff_idx] = label
+        objID_at_pixel[diff_idx] = objID
 
-    pixel_labels = pixel_labels.tolist()
-    pixel_objID = pixel_objID.tolist()
-    return pixel_labels, pixel_objID
+    return objID_at_pixel.tolist()
 
 
 def renderObjectPixels(param, h, cmat, nodes):
@@ -364,10 +354,12 @@ def renderFlightPath(param):
     for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_nums)):
         node = h.addNode(default_resources[num])
         h.setNodeTransPes(node, pos, rot, scale)
-        nodes.append(Node(node, num + cube0_label))
+        nodes.append(Node(node, int(num + cube0_label)))
         del idx, pos, rot, num, node
     del cube_pos, cube_rot, cube_nums
+
     nodes = {i + 1: node for i, node in enumerate(nodes)}
+    objID2label = {k: v.label for k, v in nodes.items()}
 
     node_pos = [h.h3dGetNodeTransform(_)[:3] for _ in nodes]
     node_pos = np.array(node_pos)
@@ -379,11 +371,10 @@ def renderFlightPath(param):
         objIDs = [k for k, v in obj_pixels.items() if np.max(v) > 0]
         obj_pixels = {objID: obj_pixels[objID] for objID in objIDs}
         frame_nodes = {objID: nodes[objID] for objID in objIDs}
-        print('Visible: ', len(objIDs))
 
-        p_labels, p_objIDs = renderPixelLabels(param, h, cmat, frame_nodes)
+        objID_at_pixel = renderPixelLabels(param, h, cmat, frame_nodes)
 
-        bb_rects = {}
+        bb_data = {}
         for objID, opix in obj_pixels.items():
             idx = np.nonzero(opix)
             assert len(idx[0]) > 0
@@ -392,7 +383,7 @@ def renderFlightPath(param):
             y0 = int(np.min(idx[0]))
             y1 = int(np.max(idx[0]))
             label = int(nodes[objID].label)
-            bb_rects[objID] = {'label': label, 'bbox': (x0, y0, x1, y1)}
+            bb_data[objID] = {'label': label, 'bbox': (x0, y0, x1, y1)}
 
         # Render the scene with the light on.
         light_node = addSun(h)
@@ -409,12 +400,12 @@ def renderFlightPath(param):
             'seed': param.seed,
             'frame_no': frame,
             'int2name': int2name,
+            'objID2label': objID2label,
             'num_frame': param.num_frames,
             'num_cubes': param.num_cubes,
-            'bb_rects': bb_rects,
+            'bb_data': bb_data,
             'obj-pixels': obj_pixels,
-            'pixel-labels': p_labels,
-            'pixel-objIDs': p_objIDs,
+            'objID-at-pixel': objID_at_pixel,
         }
         meta_raw = json.dumps(meta, indent=2).encode('utf8')
         print(f'{len(meta_raw):,} Bytes')
@@ -422,10 +413,15 @@ def renderFlightPath(param):
 
         # Plot the image and label mask (debug only).
         if param.debug:
+            objID_at_pixel = np.array(objID_at_pixel)
+            p_labels = np.zeros_like(objID_at_pixel)
+            for idx, objID in np.ndenumerate(objID_at_pixel):
+                if objID > 0:
+                    p_labels[idx] = objID2label[objID]
             plt.figure()
             plt.subplot(1, 3, 1).imshow(img_light)
             plt.subplot(1, 3, 2).imshow(p_labels, clim=[0, len(int2name)])
-            plt.subplot(1, 3, 3).imshow(p_objIDs, clim=[0, max(nodes)])
+            plt.subplot(1, 3, 3).imshow(objID_at_pixel, clim=[0, max(nodes)])
             plt.figure()
             keys = list(obj_pixels.keys())[:25]
             for i, key in enumerate(keys):
