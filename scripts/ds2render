@@ -146,7 +146,7 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     del tmp, cmat
 
     # Filter out all cubes that are in front of the camera.
-    idx = np.nonzero(z > 0.1)
+    idx = np.nonzero(z > 0.001)
     x, y, z, bb_labels = x[idx], y[idx], z[idx], labels[idx]
     pick_idx = pick_idx[idx]
     del labels
@@ -159,7 +159,7 @@ def projectCubePositions(param, cmat, labels, cube_pos):
     # Remove the cubes outside the camera frustrum. We add some slack because
     # the position only denote the centre, but even if the centre is outside
     # the frustrum it may still be possible to guess the object and its BBox.
-    bound = 1.1
+    bound = 1.2
     cond_x = (-bound < x) & (x < bound)
     cond_y = (-bound < y) & (y < bound)
     idx = np.nonzero(cond_x & cond_y)
