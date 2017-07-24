@@ -68,7 +68,7 @@ class Engine(pyhorde.PyHorde3D):
         img[:, :, 0] = img_buf[0::3].reshape(height, width)
         img[:, :, 1] = img_buf[1::3].reshape(height, width)
         img[:, :, 2] = img_buf[2::3].reshape(height, width)
-        return img
+        return np.flipud(img)
 
     def setupHorde(self):
         """Load basic/shared resources, and create the basic models.
