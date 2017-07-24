@@ -92,101 +92,6 @@ def addSun(h):
     return node
 
 
-def projectCubePositions(param, cmat, labels, cube_pos):
-    """ Return BBoxes position and size in normalised coordinates.
-
-    The output will only BBox values for visible cubes, ie cube inside the
-    camera frustrum. Essentially, this function will compute the screen
-    position of all `cube_pos` in the exact same way as OpenGL does when
-    it renders the scene.
-
-    Inputs:
-        param: command line parameters
-        cmat: Array[16, float32]
-            Camera matrix
-        labels: Array[N]
-            List of labels (eg strings or integers) for the corresponding entry
-            in the `cube_pos` array.
-        cube_pos: Array[N, 3]
-            The 3D position of the cube centres.
-
-    Returns:
-        pos: Array[N, 3]
-            BBox position. The first two dimension are in normalised screen
-            coordinates [0, 1]. The last one is depth and is the true z-value
-            of the cube. NOTE: this array will only contain visible cubes and
-            N may thus be smaller than the N for `cube_pos` input.
-        bb_rects: Integer Array[N, 4]
-            The upper left and lower right corner, ie (x0, y0, x1, y1).
-        picked_idx: List[N]
-            Integer array that lists the cube indices that were picked.
-    """
-    assert labels.ndim == 1
-    assert cube_pos.ndim == 2 and cube_pos.shape[1] == 3
-
-    # Camera parameters.
-    fov = param.fov / 2
-    fov = np.tan(fov * np.pi / 180)
-    aspect_ratio = param.width / param.height
-
-    # To track all cube indices that will be picked we create an artificial
-    # enumeration.
-    pick_idx = np.arange(len(labels))
-
-    # Convert flat camera matrix into 4x4 transform.
-    cmat = np.fromstring(cmat, np.float32).reshape(4, 4)
-    assert cmat.shape == (4, 4)
-
-    # Undo the camera transform of the cube centre positions.
-    tmp = (cube_pos - cmat[3, :3]) @ cmat[:3, :3].T
-    x, y, z = tmp[:, 0], tmp[:, 1], tmp[:, 2]
-    z = -z
-    del tmp, cmat
-
-    # Filter out all cubes that are in front of the camera.
-    idx = np.nonzero(z > 0.001)
-    x, y, z = x[idx], y[idx], z[idx]
-    pick_idx = pick_idx[idx]
-    del labels
-
-    # Project the 3D centre positions onto the 2D camera plane. This will
-    # result in values in the interval [-1, 1].
-    x = x / (z * fov * aspect_ratio)
-    y = y / (z * fov)
-
-    # Remove the cubes outside the camera frustrum. We add some slack because
-    # the position only denote the centre, but even if the centre is outside
-    # the frustrum it may still be possible to guess the object and its BBox.
-    bound = 1.2
-    cond_x = (-bound < x) & (x < bound)
-    cond_y = (-bound < y) & (y < bound)
-    idx = np.nonzero(cond_x & cond_y)
-    x, y, z = x[idx], y[idx], z[idx]
-    pick_idx = pick_idx[idx]
-    del bound, cond_x, cond_y, idx
-
-    # Map from [-1, 1] to [0, 1].
-    x = (x + 1) / 2
-    y = 1 - (y + 1) / 2
-
-    # Compile the three coordinates into a (N, 3) matrix.
-    pos = np.vstack([x, y, z]).T
-
-    # The (square) BBox size is determined by its distance from the camera plane.
-    hlen_x = 4 / (aspect_ratio * z)
-    hlen_y = 4 / z
-    bb_rects = np.zeros((len(hlen_x), 4), np.float32)
-    bb_rects[:, 0] = param.width * (x - hlen_x)
-    bb_rects[:, 2] = param.width * (x + hlen_x)
-    bb_rects[:, 1] = param.height * (y - hlen_y)
-    bb_rects[:, 3] = param.height * (y + hlen_y)
-
-    # Convert the BBox corners to integers. NOTE: the BBox corners may be
-    # outside the image because parts of the object may be outside as well.
-    bb_rects = bb_rects.astype(np.int32)
-    return pos, bb_rects, pick_idx
-
-
 def renderGroundTruthCubes(param):
     """Render each of the ten cubes from different angles.
 
@@ -396,15 +301,23 @@ def renderFlightPath(param):
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
 
+    nodes = []
+    labels = []
+    int2name = {0: 'background'}
+
     # Add the platform.
+    platform_label = len(int2name)
+    int2name[platform_label] = 'platform'
     node = h.addNode(default_resources['base'])
     h.setNodeTransPes(node, [0, -35, 0], [0, 0, 0], [1, .2, 1])
-    del node
+    nodes.append(node)
+    labels.append(platform_label)
+    del node, platform_label
 
     # Define a map that associates integers with human readable class names.
     # For technical reasons, the Zero label must be "background".
-    int2name = {i + 1: str(i) for i in range(10)}
-    int2name[0] = 'background'
+    cube0_label = len(int2name)
+    int2name.update({i + cube0_label: f'Cube {i}' for i in range(10)})
 
     # Initialise the random generator to ensure reproducible results.
     np.random.seed(param.seed)
@@ -414,7 +327,6 @@ def renderFlightPath(param):
     # machine readable labels for each cube, ie add 1 to each number because
     # Zero is the background label.
     cube_nums = np.random.choice(np.arange(10), param.num_cubes)
-    cube_labels = cube_nums + 1
 
     # Create random positions and orientations for each cube.
     cube_pos = 50 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
@@ -435,31 +347,48 @@ def renderFlightPath(param):
         del phi, pos, right, cmat
 
     # Add each cube to the scene and set its transform.
-    nodes = []
     for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_nums)):
         node = h.addNode(default_resources[num])
         h.setNodeTransPes(node, pos, rot, scale)
         nodes.append(node)
-        del node
+        labels.append(num + cube0_label)
+        del idx, pos, rot, num, node
+    del cube_pos, cube_rot, cube_nums
+    labels = np.array(labels, np.uint32)
+
+    node_pos = [h.h3dGetNodeTransform(_)[:3] for _ in nodes]
+    node_pos = np.array(node_pos)
+    assert node_pos.shape == (len(nodes), 3)
 
     # Move the camera through the scene and save each frame as a JPG file.
     for frame, cmat in enumerate(cam_mat):
-        # Save the screen coordinate of all visible cubes.
-        _ = projectCubePositions(param, cmat, cube_labels, cube_pos)
-        pos3d, bb_rects, pick_idx = _
-        if len(pick_idx) == 0:
-            continue
-        sub_nodes = [nodes[_] for _ in pick_idx]
-        sub_labels = cube_labels[pick_idx]
+        obj_pixels = renderObjectPixels(param, h, cmat, nodes)
+        tmp = np.max(obj_pixels, axis=(1, 2))
+        pick_idx = np.nonzero(tmp)[0]
 
-        pixel_labels = renderPixelLabels(param, h, cmat, sub_nodes, sub_labels)
-        obj_pixels = renderObjectPixels(param, h, cmat, sub_nodes)
+        obj_pixels = obj_pixels[pick_idx]
+        frame_nodes = [nodes[_] for _ in pick_idx]
+        frame_labels = labels[pick_idx]
+        print('Visible: ', len(pick_idx))
 
         # Render the scene with the light on.
         light_node = addSun(h)
         img_light = h.renderScene(cmat, param.width, param.height, False)
         img_light = np.flipud(img_light)
         h.h3dRemoveNode(light_node)
+
+        pixel_labels = renderPixelLabels(param, h, cmat, frame_nodes, frame_labels)
+
+        bb_rects = np.zeros([len(obj_pixels), 4], np.int32)
+        for i, opix in enumerate(obj_pixels):
+            idx = np.nonzero(opix)
+            if len(idx[0]) == 0:
+                continue
+            x0 = np.min(idx[1])
+            x1 = np.max(idx[1])
+            y0 = np.min(idx[0])
+            y1 = np.max(idx[0])
+            bb_rects[i] = (x0, y0, x1, y1)
 
         # Save the meta information.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
@@ -472,19 +401,25 @@ def renderFlightPath(param):
             'int2name': int2name,
             'num_frame': param.num_frames,
             'num_cubes': param.num_cubes,
-            'pos3d': np.round(pos3d, 2).tolist(),
-            'bb_labels': sub_labels.tolist(),
+            'bb_labels': frame_labels.tolist(),
             'bb_rects': bb_rects.tolist(),
+            'obj-pixels': obj_pixels.tolist(),
             'pixel-labels': pixel_labels.tolist(),
         }
-        bz2.open(fname_meta, 'wb').write(json.dumps(meta, indent=2).encode('utf8'))
+        meta_raw = json.dumps(meta, indent=2).encode('utf8')
+        print(f'{len(meta_raw):,} Bytes')
+        bz2.open(fname_meta, 'wb').write(meta_raw)
 
         # Plot the image and label mask (debug only).
         if param.debug:
             plt.figure()
-            plt.subplot(1, 3, 1).imshow(img_light)
-            plt.subplot(1, 3, 2).imshow(pixel_labels, clim=[0, len(int2name)])
-            plt.subplot(1, 3, 3).imshow(obj_pixels[0], clim=[0, 1])
+            plt.subplot(1, 2, 1).imshow(img_light)
+            plt.subplot(1, 2, 2).imshow(pixel_labels, clim=[0, len(int2name)])
+
+            plt.figure()
+            for i, opix in enumerate(obj_pixels[:25]):
+                plt.subplot(5, 5, i + 1)
+                plt.imshow(obj_pixels[i], clim=[0, 1])
 
     print(f'Saved flight path images to <{dst_path}>')
 
