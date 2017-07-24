@@ -387,7 +387,7 @@ def renderFlightPath(param):
         img_light = h.renderScene(cmat, param.width, param.height, True)
         h.h3dRemoveNode(light_node)
 
-        # Save the meta information.
+        # Save the rendered scene and meta data.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
         fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.json.bz2')
         img_light = PIL.Image.fromarray(img_light)
@@ -404,7 +404,6 @@ def renderFlightPath(param):
             'objID-at-pixel': objID_at_pixel,
         }
         meta_raw = json.dumps(meta, indent=2).encode('utf8')
-        print(f'{len(meta_raw):,} Bytes')
         bz2.open(fname_meta, 'wb').write(meta_raw)
 
         # Plot the image and label mask (debug only).
