@@ -9,7 +9,7 @@ training images ("cubes" and "background").
 
 import os
 import sys
-import pickle
+import json
 import argparse
 import textwrap
 import PIL.Image
@@ -383,23 +383,6 @@ def renderFlightPath(param):
         nodes.append(node)
         del node
 
-    # Compile meta information for the scene and pickle it to a file.
-    meta = {
-        'seed': param.seed,
-        'fov': param.fov,
-        'width': param.width,
-        'height': param.height,
-        'num_frame': param.num_frames,
-        'num_cubes': param.num_cubes,
-        'cam_mat': cam_mat,
-        'cube_pos': cube_pos,
-        'cube_rot': cube_rot,
-        'cube_nums': cube_nums,
-    }
-    fname_meta = os.path.join(dst_path, 'scene-meta.pickle')
-    pickle.dump(meta, open(fname_meta, 'wb'))
-    del meta
-
     # Move the camera through the scene and save each frame as a JPG file.
     for frame, cmat in enumerate(cam_mat):
         # Save the screen coordinate of all visible cubes.
@@ -457,18 +440,22 @@ def renderFlightPath(param):
 
         # Save the meta information.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
-        fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.pickle')
+        fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.json')
         img_light = PIL.Image.fromarray(img_light)
         img_light.save(fname_img, 'jpeg', quality=param.jpg_quality)
         meta = {
-            'pos3d': pos3d,
-            'bb_labels': bb_labels,
-            'bb_rects': bb_rects,
+            'seed': param.seed,
+            'frame_no': frame,
             'int2name': int2name,
-            'obj-regions': obj_regions,
-            'region-labels': region_labels,
+            'num_frame': param.num_frames,
+            'num_cubes': param.num_cubes,
+            'pos3d': np.round(pos3d, 2).tolist(),
+            'bb_labels': bb_labels.tolist(),
+            'bb_rects': bb_rects.tolist(),
+            'obj-regions': obj_regions.tolist(),
+            'region-labels': region_labels.tolist(),
         }
-        pickle.dump(meta, open(fname_meta, 'wb'))
+        json.dump(meta, open(fname_meta, 'w'), indent=2)
     print(f'Saved flight path images to <{dst_path}>')
 
     if param.debug:
