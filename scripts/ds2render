@@ -8,6 +8,7 @@ training images ("cubes" and "background").
 """
 
 import os
+import bz2
 import sys
 import json
 import argparse
@@ -440,7 +441,7 @@ def renderFlightPath(param):
 
         # Save the meta information.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
-        fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.json')
+        fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.json.bz2')
         img_light = PIL.Image.fromarray(img_light)
         img_light.save(fname_img, 'jpeg', quality=param.jpg_quality)
         meta = {
@@ -455,7 +456,8 @@ def renderFlightPath(param):
             'obj-regions': obj_regions.tolist(),
             'region-labels': region_labels.tolist(),
         }
-        json.dump(meta, open(fname_meta, 'w'), indent=2)
+        bz2.open(fname_meta, 'wb').write(json.dumps(meta, indent=2).encode('utf8'))
+
     print(f'Saved flight path images to <{dst_path}>')
 
     if param.debug:
