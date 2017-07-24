@@ -318,7 +318,7 @@ def renderGroundTruthBackground(param):
     print(f'Saved background images to <{dst_path}>')
 
 
-def renderPixelLabels(param, h, cmat, scale, nodes, labels, nodepos, noderot):
+def renderPixelLabels(param, h, cmat, nodes, labels):
     # Render the scene with all lights off. The objects will still be
     # (somewhat) visible due to the ambient light, but there will be no
     # shadows of any kind.
@@ -327,15 +327,16 @@ def renderPixelLabels(param, h, cmat, scale, nodes, labels, nodepos, noderot):
     img_all = PIL.Image.fromarray(img_all)
 
     pixel_labels = np.zeros((param.height, param.width), np.uint16)
-    for node, label, pos, rot in zip(nodes, labels, nodepos, noderot):
+    for node, label in zip(nodes, labels):
         # Render the scene without the current cube.
-        h.setNodeTransPes(node, pos, rot, [0] * 3)
+        trans = h.h3dGetNodeTransform(node)
+        h.setNodeTransPes(node, trans[:3], trans[3:6], [0] * 3)
         diff = h.renderScene(cmat, param.width, param.height, False)
-        diff = np.array(np.flipud(diff), np.float32)
-        h.setNodeTransPes(node, pos, rot, scale)
+        h.setNodeTransPes(node, trans[:3], trans[3:6], trans[6:])
 
         # Compare the images with- and without the cube to determine which
         # pixels belong to it.
+        diff = np.array(np.flipud(diff), np.float32)
         diff = np.max(np.abs(img_all - diff), axis=2)
         diff_idx = np.nonzero(diff)
 
@@ -419,12 +420,10 @@ def renderFlightPath(param):
         # Save the screen coordinate of all visible cubes.
         _ = projectCubePositions(param, cmat, cube_labels, cube_pos)
         pos3d, bb_rects, pick_idx = _
-        working_set = {
-            'nodes': [nodes[_] for _ in pick_idx],
-            'labels': cube_labels[pick_idx],
-            'nodepos': cube_pos[pick_idx],
-            'noderot': cube_rot[pick_idx],
-        }
+        if len(pick_idx) == 0:
+            continue
+        sub_nodes = [nodes[_] for _ in pick_idx]
+        sub_labels = cube_labels[pick_idx]
 
         # Render the scene with the light on.
         light_node = addSun(h)
@@ -432,7 +431,7 @@ def renderFlightPath(param):
         img_light = np.flipud(img_light)
         h.h3dRemoveNode(light_node)
 
-        pixel_labels = renderPixelLabels(param, h, cmat, scale, **working_set)
+        pixel_labels = renderPixelLabels(param, h, cmat, sub_nodes, sub_labels)
 
         # Plot the image and label mask (debug only).
         if param.debug:
@@ -452,7 +451,7 @@ def renderFlightPath(param):
             'num_frame': param.num_frames,
             'num_cubes': param.num_cubes,
             'pos3d': np.round(pos3d, 2).tolist(),
-            'bb_labels': working_set['labels'].tolist(),
+            'bb_labels': sub_labels.tolist(),
             'bb_rects': bb_rects.tolist(),
             'pixel-labels': pixel_labels.tolist(),
         }
