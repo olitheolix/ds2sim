@@ -404,7 +404,7 @@ def renderFlightPath(param):
         img_all = PIL.Image.fromarray(img_all)
 
         obj_regions = np.zeros(img_light.shape[:2], np.uint16)
-        region_labels = np.zeros_like(obj_regions)
+        pixel_labels = np.zeros_like(obj_regions)
         for obj_idx in pick_idx:
             node = nodes[obj_idx]
             pos = cube_pos[obj_idx]
@@ -430,14 +430,14 @@ def renderFlightPath(param):
             # Record which cube occupies which pixels. Then record the label
             # for each pixel as well.
             obj_regions[diff_idx] = obj_idx
-            region_labels[diff_idx] = cube_labels[obj_idx]
+            pixel_labels[diff_idx] = cube_labels[obj_idx]
 
         # Plot the image and label mask (debug only).
         if param.debug:
             plt.figure()
             plt.subplot(1, 3, 1).imshow(img_light)
             plt.subplot(1, 3, 2).imshow(obj_regions, clim=[0, len(pick_idx)])
-            plt.subplot(1, 3, 3).imshow(region_labels, clim=[0, len(int2name)])
+            plt.subplot(1, 3, 3).imshow(pixel_labels, clim=[0, len(int2name)])
 
         # Save the meta information.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
@@ -453,8 +453,7 @@ def renderFlightPath(param):
             'pos3d': np.round(pos3d, 2).tolist(),
             'bb_labels': bb_labels.tolist(),
             'bb_rects': bb_rects.tolist(),
-            'obj-regions': obj_regions.tolist(),
-            'region-labels': region_labels.tolist(),
+            'pixel-labels': pixel_labels.tolist(),
         }
         bz2.open(fname_meta, 'wb').write(json.dumps(meta, indent=2).encode('utf8'))
 
