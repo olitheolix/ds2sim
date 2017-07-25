@@ -62,7 +62,7 @@ def main():
     plt.imshow(Image.open(param.jpg))
 
     # Add all BBoxes.
-    for objID, bb_data in bb_data.items():
+    for objID, bbox in bb_data.items():
         # Fact: the object is in the camera frustrum. However, it may be
         # (partially) obscured by another object. To find out we compute the
         # ratio of pixel the object *would* occupy if it were the only object
@@ -75,14 +75,14 @@ def main():
         # Draw a BBox if the object is at least 25% visible.
         if visible_rat > 0.25:
             # Unpack the BBox, compute width and height, and draw it.
-            x0, y0, x1, y1 = bb_data['bbox']
+            x0, y0, x1, y1 = bbox['bbox']
             w = x1 - x0
             h = y1 - y0
             ax.add_patch(patches.Rectangle((x0, y0), w, h, **rect_opts))
 
             # Add a test label if the object is at least 50% visible.
             if visible_rat > 0.5:
-                name = int2name[bb_data['label']]
+                name = int2name[bbox['label']]
                 ax.text(x0 + w / 2, y0, f' {name} ', **txt_opts)
 
     # Show object ID for each pixel. Zero means no objec occupies that pixel
