@@ -337,21 +337,30 @@ def createCameraPath(param):
     return cam_mat
 
 
-def renderFlightPath(param, node_desc, camera_trans):
-    """Populate the scene with cubes and render a virtual flight through it.
+def renderFeatureData(param, im_dim, node_desc, camera_trans):
+    """Populate the scene with cubes and produce feature data for each frame.
 
     Produce a meta.pickle file in the destination folder specified on the
     command line. It contains meta information about the scene, including
     the location and label of each cube in each frame.
 
+    Works in tandem with `renderFlightPath` to produce the feature data for
+    the flight path images.
+
     Args:
         param (namespace): command line parameters returned by argparse
+        im_dim: (int, int)
+            Dimensions of the rendered image produced by `renderFlightPath`,
+            *not* the dimension of the feature maps produced here.
         node_desc: Dict[objID: (name, pos, rot, scale)]
             The list of nodes to create in the scene.
         camera_trans: List[Array[4,4]]
             List of camera transform matrices. Produce one image from each
             matrix.
     """
+    ft_height, ft_width = param.height, param.width
+    im_height, im_width = im_dim
+
     # Ensure the target directory exists.
     dst_path = os.path.join(param.dst_path, 'flightpath')
     os.makedirs(dst_path, exist_ok=True)
@@ -368,7 +377,8 @@ def renderFlightPath(param, node_desc, camera_trans):
         names.add(name)
         del objID, name, pos, rot, scale, node
 
-    # fixme: redundant
+    # Compile dict that maps objID to label data. Will be used in feature
+    # compiler when it loads the data.
     objID2label = {k: v.label for k, v in nodes.items()}
 
     int2name = {idx + 1: name for idx, name in enumerate(sorted(names))}
@@ -376,7 +386,10 @@ def renderFlightPath(param, node_desc, camera_trans):
 
     # Move the camera through the scene and save each frame as a JPG file.
     procs = []
-    for frame, cmat in enumerate(tqdm.tqdm(camera_trans)):
+    progbar = tqdm.tqdm(
+        enumerate(camera_trans), total=len(camera_trans),
+        desc=f'Compiling {param.height}x{param.width} Features', leave=False)
+    for frame, cmat in progbar:
         # Render the scene with the light on.
         light_node = addSun(h)
         img_light = h.renderScene(cmat, param.width, param.height, True)
@@ -404,20 +417,22 @@ def renderFlightPath(param, node_desc, camera_trans):
         # Compute the BBox corners. Simply check the maximum spatial extent in
         # x/y direction for each visible object.
         bb_rects = {}
-        for objID, opix in obj_pixels.items():
-            idx = np.nonzero(opix)
+        for objID, pixels in obj_pixels.items():
+            idx = np.nonzero(pixels)
             assert len(idx[0]) > 0
-            x0 = int(np.min(idx[1]))
-            x1 = int(np.max(idx[1]))
-            y0 = int(np.min(idx[0]))
-            y1 = int(np.max(idx[0]))
-            bb_rects[objID] = (x0, y0, x1, y1)
+            x0 = np.min(idx[1])
+            x1 = np.max(idx[1])
+            y0 = np.min(idx[0])
+            y1 = np.max(idx[0])
+
+            # Adjust the BBox size so that it would fit a (im_height, im_width)
+            # image.
+            x0, x1 = np.array([x0, x1], np.float32) * (im_width / ft_width)
+            y0, y1 = np.array([y0, y1], np.float32) * (im_height / ft_height)
+            bb_rects[objID] = np.array([x0, y0, x1, y1]).tolist()
 
         # Save the rendered scene and meta data.
-        fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
         fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.json.bz2')
-        img_light = PIL.Image.fromarray(img_light)
-        img_light.save(fname_img, 'jpeg', quality=param.jpg_quality)
         meta = {
             'seed': param.seed,
             'frame_no': frame,
@@ -435,7 +450,7 @@ def renderFlightPath(param, node_desc, camera_trans):
         procs.append(CompressJSON(fname_meta, meta_raw))
         procs[-1].start()
 
-        # Plot the image and label mask (debug only).
+        # Plot the rendered image and objID mask (debug only).
         if param.debug:
             objID_at_pixel = np.array(objID_at_pixel)
             p_labels = np.zeros_like(objID_at_pixel)
@@ -456,10 +471,60 @@ def renderFlightPath(param, node_desc, camera_trans):
                 plt.title(f'ID: {key}')
 
     [_.join() for _ in procs if _.is_alive()]
-    print(f'Saved flight path images to <{dst_path}>')
+    print(f'Saved feature data to <{dst_path}>')
 
     if param.debug:
         plt.show()
+
+
+def renderFlightPath(param, node_desc, camera_trans):
+    """Populate the scene with cubes and render a virtual flight through it.
+
+    Write the image into the destination folder specified on the command line.
+
+    Works in tandem with `renderFeatureData` to produce the rendered images for
+    the features.
+
+    Args:
+        param (namespace): command line parameters returned by argparse
+        node_desc: Dict[objID: (name, pos, rot, scale)]
+            The list of nodes to create in the scene.
+        camera_trans: List[Array[4,4]]
+            List of camera transform matrices. Produce one image from each
+            matrix.
+    """
+    # Ensure the target directory exists.
+    dst_path = os.path.join(param.dst_path, 'flightpath')
+    os.makedirs(dst_path, exist_ok=True)
+
+    h = ds2sim.horde.Engine(param.width, param.height, param.fov)
+    default_resources = h.loadDefaultResources()
+
+    # Add each cube to the scene and set its transform.
+    nodes = dict()
+    for objID, (name, pos, rot, scale) in enumerate(node_desc):
+        node = h.addNode(default_resources[name])
+        h.setNodeTransPes(node, pos, rot, scale)
+        nodes[objID] = Node(node, name)
+        del objID, name, pos, rot, scale, node
+
+    # Add light.
+    addSun(h)
+
+    # Move the camera through the scene and save each frame as a JPG file.
+    progbar = tqdm.tqdm(
+        enumerate(camera_trans), total=len(camera_trans),
+        desc=f'Rendering {param.height}x{param.width} images', leave=False)
+    for frame, cmat in progbar:
+        # Render the scene.
+        img_light = h.renderScene(cmat, param.width, param.height, True)
+
+        # Save the rendered scene and meta data.
+        fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
+        img_light = PIL.Image.fromarray(img_light)
+        img_light.save(fname_img, 'jpeg', quality=param.jpg_quality)
+
+    print(f'Saved flight path images to <{dst_path}>')
 
 
 def main():
@@ -472,7 +537,14 @@ def main():
     if param.mode == 'flight':
         model_trans = createModelSetup(param)
         camera_trans = createCameraPath(param)
+
+        print('-- Flight Path Rendering --')
         renderFlightPath(param, model_trans, camera_trans)
+
+        print('\n-- Flight Path Feature --')
+        im_dim = param.height, param.width
+        param.height, param.width = (128, 128)
+        renderFeatureData(param, im_dim, model_trans, camera_trans)
     elif param.mode == 'cubes':
         renderGroundTruthCubes(param)
     elif param.mode == 'background':
