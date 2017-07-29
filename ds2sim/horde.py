@@ -148,25 +148,30 @@ class Engine(pyhorde.PyHorde3D):
         mat_cube_xml_template = open(fname, 'r').read()
         del fname
 
-        ret = {}
+        all_res = {}
         for i in range(10):
             self.res_idx += 1
+
+            # Duplicate and modify the scene XML template.
             res_name = f'cube_{i}'
             mat_name = f'mat_cube_{i}'
             scn_cube_xml = scn_cube_xml_template.replace(
                 'material="cube.material.xml"', f'material="{mat_name}"')
+
+            # Add the Scene graph resource (ie the mesh).
             res = self.h3dAddResource(rt.SceneGraph, res_name, 0)
             self.h3dLoadResource(res, scn_cube_xml.encode('utf8'))
             self.resources[self.res_idx] = res
-            ret[i] = res
+            all_res[f'Cube {i}'] = res
             del res
 
+            # Duplicate and modify the material XML template.
             mat_cube_xml = mat_cube_xml_template.replace('0.jpg', f'{i}.jpg')
             res = self.h3dAddResource(rt.Material, mat_name, 0)
             self.h3dLoadResource(res, mat_cube_xml.encode('utf8'))
 
         # Add the platform resource.
-        ret['base'] = self.resources['base']
+        all_res['base'] = self.resources['base']
 
         if not self.h3dUtLoadResourcesFromDisk(path):
             self.logit.error('Could not load cube resources')
@@ -174,7 +179,7 @@ class Engine(pyhorde.PyHorde3D):
 
         self.logit.info('Loaded all cube resources')
         self.h3dUtDumpMessages()
-        return ret
+        return all_res
 
     def _loadDemoScene(self, num_cubes, seed=0):
         """Setup a demo scene.
