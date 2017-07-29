@@ -230,7 +230,7 @@ def renderGroundTruthBackground(param):
 
 
 def renderPixelLabels(param, h, cmat, nodes):
-    # Render the scene with all lights off. The objects will still be
+    # Render all objects in but with the lights off. The objects will still be
     # (somewhat) visible due to the ambient light, but there will be no
     # shadows of any kind.
     img_all = h.renderScene(cmat, param.width, param.height, False)
@@ -268,17 +268,18 @@ def renderObjectPixels(param, h, cmat, nodes):
     obj_pixels = {}
     for objID, (node, _) in nodes.items():
         t = trans[objID]
+
         # Render the scene with only the current cube in it.
         h.setNodeTransPes(node, t[:3], t[3:6], t[6:])
-        diff = h.renderScene(cmat, param.width, param.height, False)
+        img_single = h.renderScene(cmat, param.width, param.height, False)
         h.setNodeTransPes(node, t[:3], t[3:6], [0] * 3)
 
         # Mark which pixels are occupied by the current object.
-        diff_idx = np.nonzero(np.max(diff, axis=2))
-
-        tmp = np.zeros((param.height, param.width), np.uint8)
-        tmp[diff_idx] = 1
-        obj_pixels[objID] = tmp.tolist()
+        obj_idx = np.nonzero(np.max(img_single, axis=2))
+        if len(obj_idx[0]) > 0:
+            tmp = np.zeros((param.height, param.width), np.uint8)
+            tmp[obj_idx] = 1
+            obj_pixels[objID] = tmp.tolist()
 
     # Restore the scale of all objects to make them visible.
     for objID, (node, _) in nodes.items():
@@ -300,7 +301,43 @@ class CompressJSON(multiprocessing.Process):
         bz2.open(self.fname, 'wb').write(self.data)
 
 
-def renderFlightPath(param):
+def createModelSetup(param):
+    node_desc = []
+    node_desc.append(('base', (0, -35, 0), (0, 0, 0), (1, .2, 1)))
+
+    # Draw a sequence of integers [0-9]. These will be the numbers displayed on
+    # the cube. Use this sequence to also compile the corresponding list of
+    # machine readable labels for each cube, ie add 1 to each number because
+    # Zero is the background label.
+    cube_nums = np.random.choice(np.arange(10), param.num_cubes)
+
+    # Create random positions and orientations for each cube.
+    cube_pos = 50 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
+    cube_rot = 180 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
+
+    # Each cube has the same size in the scene.
+    scale = 2 * np.ones(3)
+
+    for pos, rot, num in zip(cube_pos, cube_rot, cube_nums):
+        node_desc.append((f'Cube {num}', pos, rot, scale))
+    return node_desc
+
+
+def createCameraPath(param):
+    # Create a flight path, that is, create the camera- position and vectors.
+    # To ensure a "smooth" path that also connects the end to the beginning, we
+    # will use trigonometric functions only.
+    cam_mat = []
+    for phi in np.linspace(0, 2 * np.pi, param.num_frames):
+        pos = (30 * np.cos(phi), 20 * np.sin(phi), 30 * np.sin(phi))
+        right = np.array([np.cos(3 * phi), 0, np.sin(3 * phi)])
+        cmat = ds2sim.camera.compileCameraMatrix(right=right, up=[0, 1, 0], pos=pos)
+        cam_mat.append(cmat)
+        del phi, pos, right, cmat
+    return cam_mat
+
+
+def renderFlightPath(param, node_desc, camera_trans):
     """Populate the scene with cubes and render a virtual flight through it.
 
     This will also produce a meta.pickle file in the destination folder
@@ -318,82 +355,51 @@ def renderFlightPath(param):
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
 
-    nodes = []
-    int2name = {0: 'background'}
-
-    # Add the platform.
-    platform_label = len(int2name)
-    int2name[platform_label] = 'platform'
-    node = h.addNode(default_resources['base'])
-    h.setNodeTransPes(node, [0, -35, 0], [0, 0, 0], [1, .2, 1])
-    nodes.append(Node(node, platform_label))
-    del node, platform_label
-
-    # Define a map that associates integers with human readable class names.
-    # For technical reasons, the Zero label must be "background".
-    cube0_label = len(int2name)
-    int2name.update({i + cube0_label: f'Cube {i}' for i in range(10)})
-
-    # Initialise the random generator to ensure reproducible results.
-    np.random.seed(param.seed)
-
-    # Draw a sequence of integers [0-9]. These will be the numbers displayed on
-    # the cube. Use this sequence to also compile the corresponding list of
-    # machine readable labels for each cube, ie add 1 to each number because
-    # Zero is the background label.
-    cube_nums = np.random.choice(np.arange(10), param.num_cubes)
-
-    # Create random positions and orientations for each cube.
-    cube_pos = 50 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
-    cube_rot = 180 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
-
-    # Each cube has the same size in the scene.
-    scale = 2 * np.ones(3)
-
-    # Create a flight path, that is, create the camera- position and vectors.
-    # To ensure a "smooth" path that also connects the end to the beginning, we
-    # will use trigonometric functions only.
-    cam_mat = []
-    for phi in np.linspace(0, 2 * np.pi, param.num_frames):
-        pos = (30 * np.cos(phi), 20 * np.sin(phi), 30 * np.sin(phi))
-        right = np.array([np.cos(3 * phi), 0, np.sin(3 * phi)])
-        cmat = ds2sim.camera.compileCameraMatrix(right=right, up=[0, 1, 0], pos=pos)
-        cam_mat.append(cmat)
-        del phi, pos, right, cmat
-
     # Add each cube to the scene and set its transform.
-    for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_nums)):
-        node = h.addNode(default_resources[num])
+    nodes, names = dict(), set()
+    for objID, (name, pos, rot, scale) in enumerate(node_desc):
+        node = h.addNode(default_resources[name])
         h.setNodeTransPes(node, pos, rot, scale)
-        nodes.append(Node(node, int(num + cube0_label)))
-        del idx, pos, rot, num, node
-    del cube_pos, cube_rot, cube_nums
+        nodes[objID] = Node(node, name)
+        names.add(name)
+        del objID, name, pos, rot, scale, node
 
-    nodes = {i + 1: node for i, node in enumerate(nodes)}
+    # fixme: redundant
     objID2label = {k: v.label for k, v in nodes.items()}
 
-    node_pos = [h.h3dGetNodeTransform(_)[:3] for _ in nodes]
-    node_pos = np.array(node_pos)
-    assert node_pos.shape == (len(nodes), 3)
+    int2name = {idx + 1: name for idx, name in enumerate(sorted(names))}
+    int2name[0] = 'None'
 
     # Move the camera through the scene and save each frame as a JPG file.
     procs = []
-    for frame, cmat in enumerate(tqdm.tqdm(cam_mat)):
-        if True:
-            tmp = {k: h.h3dCheckNodeVisibility(v.handle, h.cam) for k, v in nodes.items()}
-            objIDs = {k: v for k, v in tmp.items() if v >= 0}
-            visible_nodes = {objID: nodes[objID] for objID in objIDs}
-        else:
-            visible_nodes = nodes
+    for frame, cmat in enumerate(tqdm.tqdm(camera_trans)):
+        # Render the scene with the light on.
+        light_node = addSun(h)
+        img_light = h.renderScene(cmat, param.width, param.height, True)
+        h.h3dRemoveNode(light_node)
 
-        obj_pixels = renderObjectPixels(param, h, cmat, visible_nodes)
-        objIDs = [k for k, v in obj_pixels.items() if np.max(v) > 0]
-        obj_pixels = {objID: obj_pixels[objID] for objID in objIDs}
+        # Find out which nodes are inside the camera frustrum or, more
+        # importantly, which are not so that we can skip them. NOTE: this is
+        # not 100% reliable and may produce false positives.
+        fun = h.h3dCheckNodeVisibility
+        tmp = {k: fun(v.handle, h.cam) for k, v in nodes.items()}
+        objIDs = {k: v for k, v in tmp.items() if v >= 0}
         visible_nodes = {objID: nodes[objID] for objID in objIDs}
+        del fun, tmp, objIDs
 
+        # Render each object individually to figure out which pixels it
+        # occupies. Then remove those objects that are invisible (ie the false
+        # positive from the previous step).
+        obj_pixels = renderObjectPixels(param, h, cmat, visible_nodes)
+        obj_pixels = {k: v for k, v in obj_pixels.items() if np.max(v) > 0}
+        visible_nodes = {objID: nodes[objID] for objID in obj_pixels}
+
+        # Determine the object ID for every visible pixel.
         objID_at_pixel = renderPixelLabels(param, h, cmat, visible_nodes)
 
-        bb_data = {}
+        # Compute the BBox corners. Simply check the maximum spatial extent in
+        # x/y direction for each visible object.
+        bb_rects = {}
         for objID, opix in obj_pixels.items():
             idx = np.nonzero(opix)
             assert len(idx[0]) > 0
@@ -401,13 +407,7 @@ def renderFlightPath(param):
             x1 = int(np.max(idx[1]))
             y0 = int(np.min(idx[0]))
             y1 = int(np.max(idx[0]))
-            label = int(nodes[objID].label)
-            bb_data[objID] = {'label': label, 'bbox': (x0, y0, x1, y1)}
-
-        # Render the scene with the light on.
-        light_node = addSun(h)
-        img_light = h.renderScene(cmat, param.width, param.height, True)
-        h.h3dRemoveNode(light_node)
+            bb_rects[objID] = (x0, y0, x1, y1)
 
         # Save the rendered scene and meta data.
         fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
@@ -419,9 +419,9 @@ def renderFlightPath(param):
             'frame_no': frame,
             'int2name': int2name,
             'objID2label': objID2label,
-            'num_frame': param.num_frames,
             'num_cubes': param.num_cubes,
-            'bb_data': bb_data,
+            'num_frames': param.num_frames,
+            'bb_rects': bb_rects,
             'obj-pixels': obj_pixels,
             'objID-at-pixel': objID_at_pixel,
         }
@@ -435,9 +435,11 @@ def renderFlightPath(param):
         if param.debug:
             objID_at_pixel = np.array(objID_at_pixel)
             p_labels = np.zeros_like(objID_at_pixel)
+            name2int = {v: k for k, v in int2name.items()}
             for idx, objID in np.ndenumerate(objID_at_pixel):
                 if objID > 0:
-                    p_labels[idx] = objID2label[objID]
+                    p_labels[idx] = name2int[objID2label[objID]]
+
             plt.figure()
             plt.subplot(1, 3, 1).imshow(img_light)
             plt.subplot(1, 3, 2).imshow(p_labels, clim=[0, len(int2name)])
@@ -458,11 +460,15 @@ def renderFlightPath(param):
 
 def main():
     # Ensure the image sequence is repeatable.
-    np.random.seed(0)
-
     param = parseCmdline()
+
+    # Initialise the random generator to ensure reproducible results.
+    np.random.seed(param.seed)
+
     if param.mode == 'flight':
-        renderFlightPath(param)
+        model_trans = createModelSetup(param)
+        camera_trans = createCameraPath(param)
+        renderFlightPath(param, model_trans, camera_trans)
     elif param.mode == 'cubes':
         renderGroundTruthCubes(param)
     elif param.mode == 'background':
