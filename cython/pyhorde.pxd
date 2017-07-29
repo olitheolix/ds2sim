@@ -126,6 +126,7 @@ cdef extern from "horde3d/Horde3D.h":
     void h3dResizePipelineBuffers(H3DRes pipeRes, int width, int height)
     void h3dSetupCameraView(H3DNode cameraNode, float fov, float aspect,
                              float nearDist, float farDist)
+    int h3dCheckNodeVisibility(H3DNode node, H3DNode camNode, bint checkOcc, bint calcLod)
 
 cdef extern from "horde3d/Horde3DUtils.h":
     bint h3dutScreenshot(const char *)

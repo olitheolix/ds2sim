@@ -343,3 +343,6 @@ cdef class PyHorde3D:
 
     def h3dSetNodeFlags(self, H3DNode node, int flags, bint recursive):
         h3dSetNodeFlags(node, flags, recursive)
+
+    def h3dCheckNodeVisibility(self, H3DNode node, H3DNode camera):
+        return h3dCheckNodeVisibility(node, camera, True, False)
