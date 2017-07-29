@@ -379,12 +379,19 @@ def renderFlightPath(param):
     # Move the camera through the scene and save each frame as a JPG file.
     procs = []
     for frame, cmat in enumerate(tqdm.tqdm(cam_mat)):
-        obj_pixels = renderObjectPixels(param, h, cmat, nodes)
+        if True:
+            tmp = {k: h.h3dCheckNodeVisibility(v.handle, h.cam) for k, v in nodes.items()}
+            objIDs = {k: v for k, v in tmp.items() if v >= 0}
+            visible_nodes = {objID: nodes[objID] for objID in objIDs}
+        else:
+            visible_nodes = nodes
+
+        obj_pixels = renderObjectPixels(param, h, cmat, visible_nodes)
         objIDs = [k for k, v in obj_pixels.items() if np.max(v) > 0]
         obj_pixels = {objID: obj_pixels[objID] for objID in objIDs}
-        frame_nodes = {objID: nodes[objID] for objID in objIDs}
+        visible_nodes = {objID: nodes[objID] for objID in objIDs}
 
-        objID_at_pixel = renderPixelLabels(param, h, cmat, frame_nodes)
+        objID_at_pixel = renderPixelLabels(param, h, cmat, visible_nodes)
 
         bb_data = {}
         for objID, opix in obj_pixels.items():
