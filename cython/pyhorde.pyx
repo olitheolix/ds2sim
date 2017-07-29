@@ -196,8 +196,14 @@ cdef class PyHorde3D:
         )
 
     def __dealloc__(self):
-        h3dRelease()
         if self.eglDpy != NULL:
+            h3dRelease()
+            releaseEGL(self.eglDpy)
+            self.eglDpy = NULL
+
+    def shutdown(self):
+        if self.eglDpy != NULL:
+            h3dRelease()
             releaseEGL(self.eglDpy)
 
     def h3dScreenshotFile(self, str fname):
