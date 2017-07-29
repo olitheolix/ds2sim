@@ -228,7 +228,7 @@ class Engine(pyhorde.PyHorde3D):
 
         # Add each cube to the scene and set its transform.
         for idx, (pos, rot, num) in enumerate(zip(cube_pos, cube_rot, cube_num)):
-            node = self.addNode(default_resources[num])
+            node = self.addNode(default_resources[f'Cube {num}'])
             self.setNodeTransPes(node, pos, rot, scale)
 
     def addNode(self, resource, parent=None):
