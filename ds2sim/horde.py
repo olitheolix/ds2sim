@@ -32,6 +32,7 @@ class Engine(pyhorde.PyHorde3D):
         self.h3dSetNodeParamI(cam, self.h3dCamera.ViewportYI, 0)
         self.h3dSetNodeParamI(cam, self.h3dCamera.ViewportWidthI, width)
         self.h3dSetNodeParamI(cam, self.h3dCamera.ViewportHeightI, height)
+        self.h3dSetNodeParamI(cam, self.h3dCamera.OccCullingI, 1)
 
         # Set virtual camera parameters
         near, far = 0.1, 5000
