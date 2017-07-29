@@ -115,25 +115,24 @@ cdef extern from "horde3d/Horde3D.h":
                             const char *lightingContext,
                             const char *shadowContext)
 
-    void h3dSetNodeParamI( H3DNode node, int param, int value )
-    int h3dGetNodeParamI( H3DNode node, int param )
-    float h3dGetNodeParamF( H3DNode node, int param, int compIdx )
-    void h3dSetNodeParamF( H3DNode node, int param, int compIdx, float value )
+    void h3dSetNodeParamI(H3DNode node, int param, int value)
+    int h3dGetNodeParamI(H3DNode node, int param)
+    float h3dGetNodeParamF(H3DNode node, int param, int compIdx)
+    void h3dSetNodeParamF(H3DNode node, int param, int compIdx, float value)
 
     void h3dClearOverlays()
     void h3dFinalizeFrame()
-    void h3dRender( H3DNode cameraNode )
-    void h3dResizePipelineBuffers( H3DRes pipeRes, int width, int height )
-    void h3dSetupCameraView( H3DNode cameraNode, float fov, float aspect,
-                             float nearDist, float farDist )
-
+    void h3dRender(H3DNode cameraNode)
+    void h3dResizePipelineBuffers(H3DRes pipeRes, int width, int height)
+    void h3dSetupCameraView(H3DNode cameraNode, float fov, float aspect,
+                             float nearDist, float farDist)
 
 cdef extern from "horde3d/Horde3DUtils.h":
     bint h3dutScreenshot(const char *)
     bint h3dLoadResource(H3DRes res, char *data, int size)
-    bint h3dutLoadResourcesFromDisk( const char *contentDir)
+    bint h3dutLoadResourcesFromDisk(const char *contentDir)
     bint h3dutDumpMessages()
-    void h3dutGetScreenshotParam( int*,  int* )
+    void h3dutGetScreenshotParam(int*,  int*)
     bint h3dutScreenshotRaw(char *, int , unsigned char *, int)
 
 

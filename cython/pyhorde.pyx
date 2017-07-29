@@ -217,7 +217,7 @@ cdef class PyHorde3D:
     def h3dRemoveNode(self, H3DNode node):
         h3dRemoveNode(node)
 
-    def h3dAddCameraNode(self, H3DNode parent, str name, H3DRes pipelineRes ):
+    def h3dAddCameraNode(self, H3DNode parent, str name, H3DRes pipelineRes):
         cdef string s = name.encode('utf8')
         return h3dAddCameraNode(parent, s.c_str(), pipelineRes)
 
@@ -275,11 +275,11 @@ cdef class PyHorde3D:
     def h3dRender(self, H3DNode cameraNode):
         return h3dRender(cameraNode)
 
-    def h3dResizePipelineBuffers(self, H3DRes pipeRes, int width, int height ):
+    def h3dResizePipelineBuffers(self, H3DRes pipeRes, int width, int height):
         return h3dResizePipelineBuffers(pipeRes, width, height)
 
     def h3dSetupCameraView(self, H3DNode cameraNode, float fov, float aspect,
-                        float nearDist, float farDist ):
+                        float nearDist, float farDist):
         return h3dSetupCameraView(cameraNode, fov, aspect,
                         nearDist, farDist)
 
