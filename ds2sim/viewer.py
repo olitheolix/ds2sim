@@ -206,7 +206,7 @@ class ClassifierCamera(QtWidgets.QWidget):
         sensitivity = 0.003
         self.centerCursor()
         phi = sensitivity * (self.pos_before_grab.x() - xpos)
-        theta = -sensitivity * (self.pos_before_grab.y() - ypos)
+        theta = sensitivity * (self.pos_before_grab.y() - ypos)
         dz, dx = self.movement['forward'], self.movement['strafe']
         if self.movement['slow']:
             dz, dx = 0.02 * dz, 0.02 * dx
