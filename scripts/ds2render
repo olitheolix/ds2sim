@@ -340,13 +340,17 @@ def createCameraPath(param):
 def renderFlightPath(param, node_desc, camera_trans):
     """Populate the scene with cubes and render a virtual flight through it.
 
-    This will also produce a meta.pickle file in the destination folder
-    (specified on the command line). This file contains meta information about
-    the scene, most notable the location and label of each cube as seen on the
-    respective frame.
+    Produce a meta.pickle file in the destination folder specified on the
+    command line. It contains meta information about the scene, including
+    the location and label of each cube in each frame.
 
     Args:
         param (namespace): command line parameters returned by argparse
+        node_desc: Dict[objID: (name, pos, rot, scale)]
+            The list of nodes to create in the scene.
+        camera_trans: List[Array[4,4]]
+            List of camera transform matrices. Produce one image from each
+            matrix.
     """
     # Ensure the target directory exists.
     dst_path = os.path.join(param.dst_path, 'flightpath')
