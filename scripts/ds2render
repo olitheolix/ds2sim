@@ -1,6 +1,6 @@
 #!env python
 """
-Render training- or fligh images into a user specified folder.
+Render training- or flight images into a user specified folder.
 
 Run this script with the -h option to see the possible render scenarios. Most
 notable, these include a flight path along a fixed trajectory ("flight"), or
