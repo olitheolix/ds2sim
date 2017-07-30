@@ -35,7 +35,7 @@ def parseCmdline():
         Examples:
           ds2render --num-images 200 --num-cubes 300 flight
           ds2render --num-images 20 cubes
-          ds2render --num-images 20 --resolution 512x512 background
+          ds2render --num-images 20 --resolution 256x256 background
     ''')
 
     # Create a parser and program description.
@@ -52,7 +52,7 @@ def parseCmdline():
     padd('--dst-path', metavar='', type=str,
          default=os.path.join(os.getcwd(), 'img'),
          help='Where to write images')
-    padd('--resolution', metavar='', type=str, default='256x256',
+    padd('--resolution', metavar='', type=str, default='512x512',
          help='Width x Height, eg "512x256"')
     padd('--num-images', metavar='', type=int, default=10,
          help='Number of images to render')
