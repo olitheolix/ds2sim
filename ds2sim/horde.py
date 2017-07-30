@@ -137,7 +137,7 @@ class Engine(pyhorde.PyHorde3D):
         platform and all cubes.
 
         Returns:
-            dict: {cube_nr: handle}, where 'cube_nr' is an integer in [0, 9].
+            dict: {name: handle}, where 'name_nr' is eg. 'Cube 5'.
         """
         rt = self.h3dResTypes
         path = os.path.join(ds2sim.getResourcePath(), 'models', 'cube')
@@ -177,8 +177,75 @@ class Engine(pyhorde.PyHorde3D):
             self.logit.error('Could not load cube resources')
             return {}
 
-        self.logit.info('Loaded all cube resources')
+        self.logit.info('Loaded cube resources')
         self.h3dUtDumpMessages()
+
+        all_res.update(self.loadAsteroids())
+        all_res.update(self.loadShips())
+        return all_res
+
+    def _loadCustomModel(self, fname, model_name):
+        rt = self.h3dResTypes
+
+        try:
+            xml_scn = open(f'{fname}.scene.xml', 'r').read()
+            xml_mat = open(f'{fname}.material.xml', 'r').read()
+        except FileNotFoundError:
+            print(f'INFO: skipping model {model_name}')
+            return {}
+
+        # Add the Material and Scene graph resources.
+        mat_res = self.h3dAddResource(rt.Material, f'mat_{model_name}', 0)
+        scn_res = self.h3dAddResource(rt.SceneGraph, f'{model_name}', 0)
+
+        # Load the resources from disk.
+        self.h3dLoadResource(scn_res, xml_scn.encode('utf8'))
+        self.h3dLoadResource(mat_res, xml_mat.encode('utf8'))
+        if not self.h3dUtLoadResourcesFromDisk(os.path.dirname(fname)):
+            self.logit.error('Could not load asteroid resources')
+            return {}
+        self.h3dUtDumpMessages()
+
+        self.res_idx += 1
+        self.resources[self.res_idx] = scn_res
+        return scn_res
+
+    def loadAsteroids(self):
+        """ Load Asteroid models.
+
+        Returns:
+            dict: {name: handle}, where 'name_nr' is eg. 'Asteroid 5'.
+        """
+        path = os.path.join(ds2sim.getResourcePath(), 'models', 'asteroids')
+        if not os.path.exists(path):
+            return {}
+
+        all_res = {}
+        for i in range(1, 11):
+            name = f'Asteroid {i}'
+            fname = os.path.join(path, f'asteroid_{i:02d}')
+            all_res[name] = self._loadCustomModel(fname, name)
+
+        self.logit.info('Loaded Asteroid resources')
+        return all_res
+
+    def loadShips(self):
+        """ Load ship models.
+
+        Returns:
+            dict: {name: handle}, where 'name_nr' is eg. 'Kingsword'.
+        """
+        base_path = os.path.join(ds2sim.getResourcePath(), 'models')
+        all_res = {}
+        for fname in ['kingsword', 'miningship']:
+            # Eg: <models/kingsword/kingsword>
+            path = os.path.join(base_path, fname)
+            if not os.path.exists(path):
+                continue
+            fname = os.path.join(path, fname)
+            model_name = fname.capitalize()
+            all_res[fname] = self._loadCustomModel(fname, fname)
+            self.logit.info(f'Loaded {model_name} resources')
         return all_res
 
     def _loadDemoScene(self, num_cubes, seed=0):
