@@ -328,13 +328,14 @@ def createCameraPath(param):
     # To ensure a "smooth" path that also connects the end to the beginning, we
     # will use trigonometric functions only.
     cam_mat = []
-    for phi in np.linspace(0, 2 * np.pi, param.num_frames):
+    for phi in np.linspace(0, 2 * np.pi, param.num_frames + 1):
         pos = (30 * np.cos(phi), 20 * np.sin(phi), 30 * np.sin(phi))
         right = np.array([np.cos(3 * phi), 0, np.sin(3 * phi)])
         cmat = ds2sim.camera.compileCameraMatrix(right=right, up=[0, 1, 0], pos=pos)
         cam_mat.append(cmat)
-        del phi, pos, right, cmat
-    return cam_mat
+
+    # Drop the last matrix because it will match the first one.
+    return cam_mat[:-1]
 
 
 def renderFeatureData(param, im_dim, node_desc, camera_trans):
