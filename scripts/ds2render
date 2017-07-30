@@ -305,24 +305,25 @@ class CompressJSON(multiprocessing.Process):
 
 
 def createModelSetup(param):
+    N = param.num_cubes
+
+    # Create random positions and orientations for each cube.
+    node_pos = 50 * np.random.uniform(-1, 1, size=(N, 3))
+    node_rot = 180 * np.random.uniform(-1, 1, size=(N, 3))
+
+    # Compile list of Cube names. Each cube has the same scale in the scene.
+    cube_models = [f'Cube {i}' for i in range(10)]
+    cube_scales = {k: 2 * np.ones(3) for k in cube_models}
+
+    # Manually add the base because it is so big.
     node_desc = []
     node_desc.append(('base', (0, -35, 0), (0, 0, 0), (1, .2, 1)))
 
-    # Draw a sequence of integers [0-9]. These will be the numbers displayed on
-    # the cube. Use this sequence to also compile the corresponding list of
-    # machine readable labels for each cube, ie add 1 to each number because
-    # Zero is the background label.
-    cube_nums = np.random.choice(np.arange(10), param.num_cubes)
+    # Iterate through the random pos/rot lists and assign it to a random cube.
+    for pos, rot in zip(node_pos, node_rot):
+        name = cube_models[np.random.choice(len(cube_models))]
+        node_desc.append((name, pos, rot, cube_scales[name]))
 
-    # Create random positions and orientations for each cube.
-    cube_pos = 50 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
-    cube_rot = 180 * np.random.uniform(-1, 1, size=(param.num_cubes, 3))
-
-    # Each cube has the same size in the scene.
-    scale = 2 * np.ones(3)
-
-    for pos, rot, num in zip(cube_pos, cube_rot, cube_nums):
-        node_desc.append((f'Cube {num}', pos, rot, scale))
     return node_desc
 
 
