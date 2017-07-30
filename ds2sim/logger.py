@@ -11,7 +11,7 @@ def getLogger(name):
 
     # Specify the logging format.
     fmt = (
-        '%(asctime)s|%(levelname)s|%(pathname)s:%(lineno)d:%(funcName)s'
+        '%(asctime)s|%(levelname)s|%(filename)s:%(lineno)d:%(funcName)s'
         ' (%(process)d)|%(message)s'
     )
     formatter = logging.Formatter(fmt)
