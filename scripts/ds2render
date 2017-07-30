@@ -182,7 +182,7 @@ def renderGroundTruthCubes(param):
             h.setNodeTransPes(nodes[j], [0, 0, 0], [0, 0, 0], [0, 0, 0])
             del j, img
         del tm
-    print(f'Saved pure cube images to <{dst_path}>')
+    print(f'Saved pure cube images to <{param.dst_path}>')
 
 
 def renderGroundTruthBackground(param):
@@ -226,7 +226,7 @@ def renderGroundTruthBackground(param):
         img = PIL.Image.fromarray(img)
         fname = os.path.join(dst_path, f'{i:04d}.jpg')
         img.save(fname, 'jpeg', quality=param.jpg_quality)
-    print(f'Saved background images to <{dst_path}>')
+    print(f'Saved background images to <{param.dst_path}>')
 
 
 def renderPixelLabels(param, h, cmat, nodes):
@@ -362,8 +362,7 @@ def renderFeatureData(param, im_dim, node_desc, camera_trans):
     im_height, im_width = im_dim
 
     # Ensure the target directory exists.
-    dst_path = os.path.join(param.dst_path, 'flightpath')
-    os.makedirs(dst_path, exist_ok=True)
+    os.makedirs(param.dst_path, exist_ok=True)
 
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
@@ -432,7 +431,7 @@ def renderFeatureData(param, im_dim, node_desc, camera_trans):
             bb_rects[objID] = np.array([x0, y0, x1, y1]).tolist()
 
         # Save the rendered scene and meta data.
-        fname_meta = os.path.join(dst_path, f'{frame:04d}-meta.json.bz2')
+        fname_meta = os.path.join(param.dst_path, f'{frame:04d}-meta.json.bz2')
         meta = {
             'seed': param.seed,
             'frame_no': frame,
@@ -471,7 +470,7 @@ def renderFeatureData(param, im_dim, node_desc, camera_trans):
                 plt.title(f'ID: {key}')
 
     [_.join() for _ in procs if _.is_alive()]
-    print(f'Saved feature data to <{dst_path}>')
+    print(f'Saved feature data to <{param.dst_path}>')
 
     if param.debug:
         plt.show()
@@ -494,8 +493,7 @@ def renderFlightPath(param, node_desc, camera_trans):
             matrix.
     """
     # Ensure the target directory exists.
-    dst_path = os.path.join(param.dst_path, 'flightpath')
-    os.makedirs(dst_path, exist_ok=True)
+    os.makedirs(param.dst_path, exist_ok=True)
 
     h = ds2sim.horde.Engine(param.width, param.height, param.fov)
     default_resources = h.loadDefaultResources()
@@ -520,11 +518,11 @@ def renderFlightPath(param, node_desc, camera_trans):
         img_light = h.renderScene(cmat, param.width, param.height, True)
 
         # Save the rendered scene and meta data.
-        fname_img = os.path.join(dst_path, f'{frame:04d}.jpg')
+        fname_img = os.path.join(param.dst_path, f'{frame:04d}.jpg')
         img_light = PIL.Image.fromarray(img_light)
         img_light.save(fname_img, 'jpeg', quality=param.jpg_quality)
 
-    print(f'Saved flight path images to <{dst_path}>')
+    print(f'Saved flight path images to <{param.dst_path}>')
 
 
 def main():
