@@ -33,9 +33,10 @@ def parseCmdline():
         Render DS2 related assets.
 
         Examples:
-          ds2render --num-images 200 --num-cubes 300 flight
-          ds2render --num-images 20 cubes
-          ds2render --num-images 20 --resolution 256x256 background
+          ds2render cubes --num-images 20
+          ds2render background --num-images 20 --resolution 256x256
+          ds2render flight --num-images 200 --num-cubes 300
+          ds2render flight --frame-ofs 100
     ''')
 
     # Create a parser and program description.
@@ -60,6 +61,8 @@ def parseCmdline():
          help='Number of cubes in flight scene (only useful in flight mode)')
     padd('--jpg-quality', metavar='', type=int, default=90,
          help='JPEG quality (default=90)')
+    padd('--frame-ofs', metavar='', type=int, default=0,
+         help='Offset when saving the enumerated files (default=0)')
     padd('--seed', metavar='', type=int, default=0,
          help='Seed value to ensure reproducible scenes')
     padd('--fov', metavar='', type=int, default=45,
@@ -432,7 +435,8 @@ def renderFeatureData(param, im_dim, node_desc, camera_trans):
             bb_rects[objID] = np.array([x0, y0, x1, y1]).tolist()
 
         # Save the rendered scene and meta data.
-        fname_meta = os.path.join(param.dst_path, f'{frame:04d}-meta.json.bz2')
+        frame_cnt = frame + param.frame_ofs
+        fname_meta = os.path.join(param.dst_path, f'{frame_cnt:04d}-meta.json.bz2')
         meta = {
             'seed': param.seed,
             'frame_no': frame,
@@ -519,7 +523,8 @@ def renderFlightPath(param, node_desc, camera_trans):
         img_light = h.renderScene(cmat, param.width, param.height, True)
 
         # Save the rendered scene and meta data.
-        fname_img = os.path.join(param.dst_path, f'{frame:04d}.jpg')
+        frame_cnt = frame + param.frame_ofs
+        fname_img = os.path.join(param.dst_path, f'{frame_cnt:04d}.jpg')
         img_light = PIL.Image.fromarray(img_light)
         img_light.save(fname_img, 'jpeg', quality=param.jpg_quality)
 
