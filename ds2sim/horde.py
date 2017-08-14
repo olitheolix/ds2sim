@@ -51,20 +51,13 @@ class Engine(pyhorde.PyHorde3D):
         self.h3dUtDumpMessages()
 
         # Query the size of the last screenshot, so that we can allocate a
-        # buffer into which Horde can copy the data from the GPU. We will need
-        # to allocate two buffer. The fact that we need two is an
-        # implementation detail. FYI: the floating point one will hold the RGBA
-        # image data (float values in [0, 1]). The C++ code will unpack the
-        # RGBA data into our second RGB buffer, and convert it to uint8 in the
-        # process. Some NumPy magic would have been just as efficient, and one
-        # day I will fix it.
+        # buffer into which Horde can copy the data from the GPU.
         width, height = self.h3dScreenshotDimensions()
-        f32buf = np.zeros(width * height * 4, np.float32)
         img_buf = np.zeros(width * height * 3, np.uint8)
 
         # Request the screenshot data and unpack it into the usual
         # Height x Width x 3 format.
-        assert self.h3dScreenshot(f32buf, img_buf)
+        assert self.h3dScreenshot(img_buf)
         img = np.zeros((height, width, 3), np.uint8)
         img[:, :, 0] = img_buf[0::3].reshape(height, width)
         img[:, :, 1] = img_buf[1::3].reshape(height, width)

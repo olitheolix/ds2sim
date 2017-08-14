@@ -2,6 +2,8 @@ from collections import namedtuple
 cimport pyhorde
 
 
+H3DRenderDevice = namedtuple('H3DRenderDevice', 'OpenGL2 OpenGL4')
+
 H3DOptions = namedtuple(
     'H3DOptions',
     (
@@ -111,12 +113,13 @@ cdef class PyHorde3D:
         # afterwards change the resolution freely.
         self.eglDpy = initEGL(width, height)
         assert self.eglDpy != NULL
-        assert h3dInit() is True
+        assert h3dInit(OpenGL2) is True
 
         # Root node to Horde3D scene.
         self.h3dRootNode = H3DRootNode
 
         # Expose constants to Python.
+        self.h3dRenderDevice = H3DRenderDevice(OpenGL2, OpenGL4)
         self.h3dOptions = H3DOptions(
             MaxLogLevel,
             MaxNumMessages,
@@ -301,16 +304,11 @@ cdef class PyHorde3D:
         h3dutGetScreenshotParam(&width, &height)
         return width, height
 
-    def h3dScreenshot(self, float[:] f32buf, unsigned char[:] ui8buf):
+    def h3dScreenshot(self, unsigned char[:] ui8buf):
         cdef int width, height;
         h3dutGetScreenshotParam(&width, &height)
-        assert len(f32buf) == width * height * 4
         assert len(ui8buf) == width * height * 3
-
-        return h3dutScreenshotRaw(
-            <char*?>(&f32buf[0]), len(f32buf) * sizeof(float),
-            &ui8buf[0], len(ui8buf)
-        )
+        return h3dutScreenshotRaw(&ui8buf[0], len(ui8buf))
 
     def h3dCloneResource(self, H3DRes res, str name):
         cdef string c_name = name.encode('utf8')

@@ -8,6 +8,10 @@ cdef extern from "horde3d/Horde3D.h":
     ctypedef int H3DRes
     ctypedef int H3DNode
 
+    ctypedef enum ListH3DRenderDevice "H3DRenderDevice::List":
+        OpenGL2        "H3DRenderDevice::OpenGL2"
+        OpenGL4        "H3DRenderDevice::OpenGL4"
+
     ctypedef enum ListH3DOptions "H3DOptions::List":
         MaxLogLevel        "H3DOptions::MaxLogLevel"
         MaxNumMessages     "H3DOptions::MaxNumMessages"
@@ -84,7 +88,7 @@ cdef extern from "horde3d/Horde3D.h":
 
     const H3DNode H3DRootNode
 
-    bint h3dInit()
+    bint h3dInit(ListH3DRenderDevice)
     void h3dRelease()
     bint h3dSetOption(ListH3DOptions param, float value)
     H3DRes h3dFindResource(int type, char *name)
@@ -134,7 +138,7 @@ cdef extern from "horde3d/Horde3DUtils.h":
     bint h3dutLoadResourcesFromDisk(const char *contentDir)
     bint h3dutDumpMessages()
     void h3dutGetScreenshotParam(int*,  int*)
-    bint h3dutScreenshotRaw(char *, int , unsigned char *, int)
+    bint h3dutScreenshotRaw(unsigned char *, int)
 
 
 # This _must_ be included _after_ anything that includes protobuf files.
