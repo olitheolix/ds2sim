@@ -350,3 +350,9 @@ cdef class PyHorde3D:
 
     def h3dCheckNodeVisibility(self, H3DNode node, H3DNode camera):
         return h3dCheckNodeVisibility(node, camera, True, False)
+
+    def h3dSetMaterialUniform(self, H3DRes res, str name,
+                              float a, float b, float c, float d):
+        tmp = name.encode('utf8')
+        cdef char *c_name = tmp
+        h3dSetMaterialUniform(res, c_name, a, b, c, d)

@@ -123,6 +123,7 @@ cdef extern from "horde3d/Horde3D.h":
     int h3dGetNodeParamI(H3DNode node, int param)
     float h3dGetNodeParamF(H3DNode node, int param, int compIdx)
     void h3dSetNodeParamF(H3DNode node, int param, int compIdx, float value)
+    bint h3dSetMaterialUniform(H3DRes res, char *name, float a, float b, float c, float d)
 
     void h3dClearOverlays()
     void h3dFinalizeFrame()
