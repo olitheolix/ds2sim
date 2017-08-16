@@ -3,6 +3,42 @@ cimport pyhorde
 
 
 H3DRenderDevice = namedtuple('H3DRenderDevice', 'OpenGL2 OpenGL4')
+H3DModelUpdateFlags = namedtuple('H3DModelUpdateFlags', 'Animation Geometry')
+
+H3DEmitter = namedtuple(
+    'H3DEmmitter',
+    (
+        'MatResI '
+        'PartEffResI '
+        'MaxCountI '
+        'RespawnCountI '
+        'DelayF '
+        'EmmissionRateF '
+        'SpreadAngleF '
+        'ForceF3 '
+    )
+)
+
+
+H3DPartEffRes = namedtuple(
+    'H3DPartEffRes',
+    (
+	    'ParticleElem '
+	    'ChanMoveVelElem '
+	    'ChanRotVelElem '
+	    'ChanSizeElem '
+	    'ChanColRElem '
+	    'ChanColGElem '
+	    'ChanColBElem '
+	    'ChanColAElem '
+	    'PartLifeMinF '
+	    'PartLifeMaxF '
+	    'ChanStartMinF '
+	    'ChanStartMaxF '
+	    'ChanEndRateF '
+	    'ChanDragElem '
+    )
+)
 
 H3DOptions = namedtuple(
     'H3DOptions',
@@ -120,6 +156,7 @@ cdef class PyHorde3D:
 
         # Expose constants to Python.
         self.h3dRenderDevice = H3DRenderDevice(OpenGL2, OpenGL4)
+        self.h3dModelUpdateFlags = H3DModelUpdateFlags(Animation, Geometry)
         self.h3dOptions = H3DOptions(
             MaxLogLevel,
             MaxNumMessages,
@@ -196,6 +233,34 @@ cdef class PyHorde3D:
 		    ViewportHeightI,
 		    OrthoI,
 		    OccCullingI,
+        )
+
+        self.h3dPartEffRes = H3DPartEffRes(
+	        ParticleElem,
+	        ChanMoveVelElem,
+	        ChanRotVelElem,
+	        ChanSizeElem,
+	        ChanColRElem,
+	        ChanColGElem,
+	        ChanColBElem,
+	        ChanColAElem,
+	        PartLifeMinF,
+	        PartLifeMaxF,
+	        ChanStartMinF,
+	        ChanStartMaxF,
+	        ChanEndRateF,
+	        ChanDragElem,
+        )
+
+        self.h3dEmitter = H3DEmitter(
+            MatResI,
+            PartEffResI,
+            MaxCountI,
+            RespawnCountI,
+            DelayF,
+            EmissionRateF,
+            SpreadAngleF,
+            ForceF3,
         )
 
     def __dealloc__(self):
@@ -328,10 +393,13 @@ cdef class PyHorde3D:
     def h3dGetNextResource(self, rtype, H3DRes start):
         return h3dGetNextResource(rtype, start)
 
-    def h3dFindNodes(self, H3DNode startNode, char *name, int rtype):
+    def h3dFindNodes(self, H3DNode startNode, str name, int rtype):
         tmp = name.encode('utf8')
         cdef char *c_name = tmp
         return h3dFindNodes(startNode, c_name, rtype)
+
+    def h3dGetNodeFindResult(self, int index):
+        return h3dGetNodeFindResult(index)
 
     def h3dGetNodeChild(self, H3DNode node, int index):
         return h3dGetNodeChild(node, index)
@@ -356,3 +424,28 @@ cdef class PyHorde3D:
         tmp = name.encode('utf8')
         cdef char *c_name = tmp
         h3dSetMaterialUniform(res, c_name, a, b, c, d)
+
+    def h3dAddEmitterNode(self, H3DNode parent, str name, H3DRes materialRes,
+                          H3DRes particleEffectRes, int maxParticleCount,
+                          int respawnCount):
+        tmp = name.encode('utf8')
+        cdef char *c_name = tmp
+        return h3dAddEmitterNode(
+            parent, c_name, materialRes, particleEffectRes,
+            maxParticleCount, respawnCount)
+
+    def h3dUpdateEmitter(self, H3DNode emitterNode, float timeDelta):
+        h3dUpdateEmitter(emitterNode, timeDelta)
+
+    def h3dHasEmitterFinished(self, H3DNode emitterNode):
+        return h3dHasEmitterFinished(emitterNode)
+
+    def h3dUpdateModel(self, H3DNode modelNode, int flags):
+        h3dUpdateModel(modelNode, flags)
+
+    def h3dSetupModelAnimStage(self, H3DNode modelNode, int stage, H3DRes animationRes,
+                               int layer, str startNode, bint additive):
+        tmp = startNode.encode('utf8')
+        cdef char *c_startNode = tmp
+        return h3dSetupModelAnimStage(
+            modelNode, stage, animationRes, layer, c_startNode, additive)

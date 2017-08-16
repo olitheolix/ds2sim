@@ -12,6 +12,36 @@ cdef extern from "horde3d/Horde3D.h":
         OpenGL2        "H3DRenderDevice::OpenGL2"
         OpenGL4        "H3DRenderDevice::OpenGL4"
 
+    ctypedef enum FlagsH3DModelUpdateFlags "H3DModelUpdateFlags::Flags":
+        Animation        "H3DModelUpdateFlags::Animation"
+        Geometry         "H3DModelUpdateFlags::Geometry"
+
+    ctypedef enum ListH3DPartEffRes "H3DPartEffRes::List":
+        ParticleElem        "H3DPartEffRes::ParticleElem"
+        ChanMoveVelElem     "H3DPartEffRes::ChanMoveVelElem"
+        ChanRotVelElem      "H3DPartEffRes::ChanRotVelElem"
+        ChanSizeElem        "H3DPartEffRes::ChanSizeElem"
+        ChanColRElem        "H3DPartEffRes::ChanColRElem"
+        ChanColGElem        "H3DPartEffRes::ChanColGElem"
+        ChanColBElem        "H3DPartEffRes::ChanColBElem"
+        ChanColAElem        "H3DPartEffRes::ChanColAElem"
+        PartLifeMinF        "H3DPartEffRes::PartLifeMinF"
+        PartLifeMaxF        "H3DPartEffRes::PartLifeMaxF"
+        ChanStartMinF       "H3DPartEffRes::ChanStartMinF"
+        ChanStartMaxF       "H3DPartEffRes::ChanStartMaxF"
+        ChanEndRateF        "H3DPartEffRes::ChanEndRateF"
+        ChanDragElem        "H3DPartEffRes::ChanDragElem"
+
+    ctypedef enum ListH3DEmitter "H3DEmitter::List":
+        MatResI             "H3DEmitter::MatResI"
+        PartEffResI         "H3DEmitter::PartEffResI"
+        MaxCountI           "H3DEmitter::MaxCountI"
+        RespawnCountI       "H3DEmitter::RespawnCountI"
+        DelayF              "H3DEmitter::DelayF"
+        EmissionRateF       "H3DEmitter::EmissionRateF"
+        SpreadAngleF        "H3DEmitter::SpreadAngleF"
+        ForceF3             "H3DEmitter::ForceF3"
+
     ctypedef enum ListH3DOptions "H3DOptions::List":
         MaxLogLevel        "H3DOptions::MaxLogLevel"
         MaxNumMessages     "H3DOptions::MaxNumMessages"
@@ -100,6 +130,7 @@ cdef extern from "horde3d/Horde3D.h":
     H3DNode h3dAddNodes(H3DNode parent, H3DRes sceneGraphRes)
     void h3dSetNodeFlags(H3DNode node, int flags, bint recursive)
     int h3dFindNodes(H3DNode startNode, char *name, int type)
+    H3DNode h3dGetNodeFindResult(int index)
     int h3dGetNodeType(H3DNode node)
     H3DNode h3dGetNodeChild(H3DNode node, int index)
     bint h3dSetNodeParent(H3DNode node, H3DNode parent)
@@ -133,6 +164,16 @@ cdef extern from "horde3d/Horde3D.h":
                              float nearDist, float farDist)
     int h3dCheckNodeVisibility(H3DNode node, H3DNode camNode, bint checkOcc, bint calcLod)
 
+    H3DNode h3dAddEmitterNode(H3DNode parent, char *name, H3DRes materialRes,
+                              H3DRes particleEffectRes, int maxParticleCount,
+                              int respawnCount)
+    void h3dUpdateEmitter(H3DNode emitterNode, float timeDelta)
+    bint h3dHasEmitterFinished(H3DNode emitterNode)
+    void h3dUpdateModel(H3DNode modelNode, int flags)
+    void h3dSetupModelAnimStage(H3DNode modelNode, int stage, H3DRes animationRes,
+                                int layer, char *startNode, bint additive)
+
+
 cdef extern from "horde3d/Horde3DUtils.h":
     bint h3dutScreenshot(const char *)
     bint h3dLoadResource(H3DRes res, char *data, int size)
@@ -162,3 +203,7 @@ cdef class PyHorde3D:
     cdef readonly h3dNodeFlags
     cdef readonly h3dLight
     cdef readonly h3dCamera
+    cdef readonly h3dRenderDevice
+    cdef readonly h3dModelUpdateFlags
+    cdef readonly h3dPartEffRes
+    cdef readonly h3dListH3DEmitter
