@@ -35,7 +35,7 @@ Horde3D like so:
 git clone https://github.com/olitheolix/Horde3D
 mkdir -p Horde3D/build
 cd Horde3D/build
-git checkout inMemoryScreenshot
+git checkout ds2sim
 cmake .. -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=`python -c 'import sys; print(sys.prefix)'`
 make install
 ```
